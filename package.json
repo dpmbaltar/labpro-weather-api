@@ -1,7 +1,7 @@
 {
-  "name": "labprog-webapp",
+  "name": "labpro-weather-app",
   "version": "1.0.0",
-  "description": "Weather Web App",
+  "description": "Weather App",
   "main": "dist/api/app.js",
   "scripts": {
     "start": "run-s build serve",
@@ -20,14 +20,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dpmbaltar/labprog-webapp.git"
+    "url": "git+https://github.com/dpmbaltar/labpro-weather-app.git"
   },
   "author": "Diego Pablo Matias Baltar <diego.baltar@est.fi.uncoma.edu.ar>",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/dpmbaltar/labprog-webapp/issues"
+    "url": "https://github.com/dpmbaltar/labpro-weather-app/issues"
   },
-  "homepage": "https://github.com/dpmbaltar/labprog-webapp#readme",
+  "homepage": "https://github.com/dpmbaltar/labpro-weather-app#readme",
   "dependencies": {
     "axios": "^1.2.1",
     "bootstrap": "^5.2.3",
