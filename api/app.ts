@@ -15,7 +15,7 @@ app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json());
 
 /**
- * Obtener pronóstico por fecha mayor o igual a hoy.
+ * Obtiene el pronóstico por fecha mayor o igual al día de hoy.
  * @todo
  */
 app.get('/api/weather/:year/:month/:day', async (req, res) => {
@@ -35,11 +35,16 @@ app.get('/api/weather/:year/:month/:day', async (req, res) => {
   const weatherCache = new WeatherCache(cacheCollection, new WeatherService())
   const weather = await weatherCache.current(weatherQuery)
 
-  res.status(200).json(weather);
+  if (weather.error)
+    return res.status(400).json({ error: weather.error })
+  else if (weather.weather)
+    return res.status(200).json(weather.weather)
+  else
+    return res.status(404)
 })
 
 /**
- * Obtener pronóstico actual.
+ * Obtiene el pronóstico actual.
  */
 app.get('/api/weather/current', async (req, res) => {
   const { params, query } = req
@@ -54,17 +59,40 @@ app.get('/api/weather/current', async (req, res) => {
 
   const cacheCollection = await connection.getCache()
   const weatherCache = new WeatherCache(cacheCollection, new WeatherService())
-  const currentWeather = await weatherCache.current(weatherQuery)
+  const weather = await weatherCache.current(weatherQuery)
 
-  res.status(200).json(currentWeather);
+  if (weather.error)
+    return res.status(400).json({ error: weather.error })
+  else if (weather.weather)
+    return res.status(200).json(weather.weather)
+  else
+    return res.status(404)
 })
 
 /**
- * Obtener pronóstico de los siguientes días.
+ * Obtiene el pronóstico de los días siguientes.
  * @todo
  */
  app.get('/api/weather/forecast', async (req, res) => {
-  res.status(404).send()
+  const { lat = 0, lon = 0 } = req.query
+  const { error, value:weatherQuery } = WeatherQuerySchema.validate({
+    latitude: lat,
+    longitude: lon,
+  })
+
+  if (error)
+    return res.status(400).json({ error: error })
+
+  const cacheCollection = await connection.getCache()
+  const weatherCache = new WeatherCache(cacheCollection, new WeatherService())
+  const weather = await weatherCache.forecast(weatherQuery)
+
+  if (weather.error)
+    return res.status(400).json({ error: weather.error })
+  else if (weather.weather)
+    return res.status(200).json(weather.weather)
+  else
+    return res.status(404)
 })
 
 /*app.get('/api/weather/:year/:month/:day', (req, res) => {

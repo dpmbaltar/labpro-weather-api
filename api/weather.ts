@@ -91,6 +91,7 @@ export class WeatherCache implements Weather {
     if (!result.weather) {
       result = await this.service.current(query)
       this.saveCurrent(result)
+      delete result.weather.forecast
     }
 
     return result
@@ -109,7 +110,9 @@ export class WeatherCache implements Weather {
         }
       }
     }, { projection: { _id: 0, location: 0, "weather.forecast": 0 } })
-      .then((r) => result.weather = r.weather)
+      .then((r) => {
+        if (r) result.weather = r.weather
+      })
       .catch((e) => {
         result.error = e
         console.error(e)
@@ -138,12 +141,40 @@ export class WeatherCache implements Weather {
       .catch((e) => console.error(e))
   }
 
-  public forecast(query: WeatherQuery): Promise<WeatherResult> {
-    console.log('WeatherCache: Handling current() request')
-    return null
+  public async forecast(query: WeatherQuery): Promise<WeatherResult> {
+    console.log('WeatherCache: Handling forecast() request')
+    let result = await this.findForecast(query)
+
+    if (!result.weather) {
+      result = await this.service.forecast(query)
+      this.saveCurrent(result)
+      delete result.weather.current
+    }
+
+    return result
   }
 
-  private async findForecast(): Promise<WeatherResult> {
-    return null
+  private async findForecast(query: WeatherQuery): Promise<WeatherResult> {
+    const result = { weather: null, error: null }
+    await this.cache.findOne({
+      location: {
+        $near: {
+          $geometry: {
+            type: "Point",
+            coordinates: [query.longitude, query.latitude]
+          },
+          $maxDistance: config.weather.options.maxDistance
+        }
+      }
+    }, { projection: { _id: 0, location: 0, "weather.current": 0 } })
+      .then((r) => {
+        if (r) result.weather = r.weather
+      })
+      .catch((e) => {
+        result.error = e
+        console.error(e)
+      })
+
+    return result
   }
 }
