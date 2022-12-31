@@ -1,0 +1,43 @@
+{
+  "name": "labprog-webapp",
+  "version": "1.0.0",
+  "description": "Weather Web App",
+  "main": "dist/api/app.js",
+  "scripts": {
+    "start": "run-s build serve",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:script": "tsc && node dist/api/test.js",
+    "serve": "node dist/api/app.js",
+    "build": "run-s clean mkdirs copy typescript",
+    "typescript": "tsc",
+    "clean": "rm -rf ./dist",
+    "mkdirs": "mkdir ./dist ./dist/api ./dist/app",
+    "copy": "run-s copy:*",
+    "copy:src": "cp -r ./app/* ./dist/app",
+    "copy:bootstrap": "cp node_modules/bootstrap/dist/css/bootstrap.min.css dist/app/css/bootstrap.min.css",
+    "copy:bootstrapjs": "cp node_modules/bootstrap/dist/js/bootstrap.min.js dist/app/js/bootstrap.min.js",
+    "copy:navigo": "cp node_modules/navigo/lib/navigo.min.js dist/app/js/navigo.min.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dpmbaltar/labprog-webapp.git"
+  },
+  "author": "Diego Pablo Matias Baltar <diego.baltar@est.fi.uncoma.edu.ar>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dpmbaltar/labprog-webapp/issues"
+  },
+  "homepage": "https://github.com/dpmbaltar/labprog-webapp#readme",
+  "dependencies": {
+    "axios": "^1.2.1",
+    "bootstrap": "^5.2.3",
+    "express": "^4.18.2",
+    "joi": "^17.7.0",
+    "mongodb": "^4.12.1",
+    "navigo": "7.1.2"
+  },
+  "devDependencies": {
+    "npm-run-all": "^4.1.5",
+    "typescript": "^4.9.4"
+  }
+}

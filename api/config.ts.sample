@@ -1,0 +1,20 @@
+export default {
+  weather: {
+    db: {
+      uri: "DB_URL",
+      name: "weather",
+      collection: "cache"
+    },
+    service: {
+      url: "API_URL",
+      host: "API_HOST",
+      key: "API_KEY",
+      lang: "es",
+      days: 3
+    },
+    options: {
+      ttl: 10800, // 3 hs
+      maxDistance: 1000 // 1 km
+    }
+  }
+}

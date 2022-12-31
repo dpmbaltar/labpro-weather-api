@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "esModuleInterop": true,
+    "target": "es6",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "rootDir": "api",
+    "sourceMap": true,
+    "outDir": "dist/api"
+  },
+  "lib": ["es2015"],
+  "include": ["api/**/*.ts"],
+  "exclude": ["node_modules", "**/*.spec.ts"]
+}
