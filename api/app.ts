@@ -1,15 +1,12 @@
 import express from 'express'
 import bodyParser from 'body-parser'
-const fs = require('fs')
-const path = require('path')
+import path from 'path'
 import axios from 'axios'
 import joi from 'joi';
-import { connection } from './connection.js'
-import { WeatherCache, WeatherService, WeatherQuerySchema } from './weather.js'
-const valid = require('./dbschema.js')
+import { connection } from './connection'
+import { WeatherCache, WeatherService, WeatherQuerySchema } from './weather'
 
 const port = 9000
-const dbFile = 'api/db.json'
 const staticDir = path.dirname(__dirname) + '/app'
 const app = express()
 
@@ -143,7 +140,7 @@ app.get('/api/weather/forecast', (req, res) => {
 /**
  * Crear pronóstico
  */
-app.post('/api/weather', (req, res) => {
+/*app.post('/api/weather', (req, res) => {
   const { body:newWeather } = req
   const { error, value:newValidWeather } = valid.weatherSchema.validate(newWeather)
 
@@ -179,7 +176,7 @@ app.post('/api/weather', (req, res) => {
     console.log(`Error al leer archivo db.json: ${e}`)
     return res.status(500).json()
   }
-})
+})*/
 
 app.listen(port, () => {
   return console.log(`Listening at http://localhost:${port}`)
