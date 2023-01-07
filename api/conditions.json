@@ -34,5 +34,137 @@
     "day": "Niebla de escarcha",
     "night": "Niebla de escarcha",
     "icon": 143
+  },
+  {
+    "code": 51,
+    "day": "Llovizna ligera",
+    "night": "Llovizna ligera",
+    "icon": 266
+  },
+  {
+    "code": 53,
+    "day": "Llovizna moderada",
+    "night": "Llovizna moderada",
+    "icon": 266
+  },
+  {
+    "code": 55,
+    "day": "Llovizna fuerte",
+    "night": "Llovizna fuerte",
+    "icon": 266
+  },
+  {
+    "code": 56,
+    "day": "Llovizna helada ligera",
+    "night": "Llovizna helada ligera",
+    "icon": 281
+  },
+  {
+    "code": 57,
+    "day": "Llovizna helada moderada o fuerte",
+    "night": "Llovizna helada moderada o fuerte",
+    "icon": 284
+  },
+  {
+    "code": 61,
+    "day": "Lluvia ligera",
+    "night": "Lluvia ligera",
+    "icon": 296
+  },
+  {
+    "code": 63,
+    "day": "Lluvia moderada",
+    "night": "Lluvia moderada",
+    "icon": 302
+  },
+  {
+    "code": 65,
+    "day": "Lluvia fuerte",
+    "night": "Lluvia fuerte",
+    "icon": 308
+  },
+  {
+    "code": 66,
+    "day": "Lluvia helada ligera",
+    "night": "Lluvia helada ligera",
+    "icon": 311
+  },
+  {
+    "code": 67,
+    "day": "Lluvia helada moderada o fuerte",
+    "night": "Lluvia helada moderada o fuerte",
+    "icon": 314
+  },
+  {
+    "code": 71,
+    "day": "Nevada ligera",
+    "night": "Nevada ligera",
+    "icon": 326
+  },
+  {
+    "code": 73,
+    "day": "Nevada moderada",
+    "night": "Nevada moderada",
+    "icon": 332
+  },
+  {
+    "code": 75,
+    "day": "Nevada fuerte",
+    "night": "Nevada fuerte",
+    "icon": 338
+  },
+  {
+    "code": 77,
+    "day": "Granizo",
+    "night": "Granizo",
+    "icon": 350
+  },
+  {
+    "code": 80,
+    "day": "Chaparrones ligeros",
+    "night": "Chaparrones ligeros",
+    "icon": 353
+  },
+  {
+    "code": 81,
+    "day": "Chaparrones moderados",
+    "night": "Chaparrones moderados",
+    "icon": 356
+  },
+  {
+    "code": 82,
+    "day": "Chaparrones fuertes",
+    "night": "Chaparrones fuertes",
+    "icon": 359
+  },
+  {
+    "code": 85,
+    "day": "Chaparrones de nieve ligeros",
+    "night": "Chaparrones de nieve ligeros",
+    "icon": 368
+  },
+  {
+    "code": 86,
+    "day": "Chaparrones de nieve moderados o fuertes",
+    "night": "Chaparrones de nieve moderados o fuertes",
+    "icon": 371
+  },
+  {
+    "code": 95,
+    "day": "Tormenta ligera o moderada",
+    "night": "Tormenta ligera o moderada",
+    "icon": 389
+  },
+  {
+    "code": 96,
+    "day": "Tormenta con granizo leve",
+    "night": "Tormenta con granizo leve",
+    "icon": 395
+  },
+  {
+    "code": 99,
+    "day": "Tormenta con granizo fuerte",
+    "night": "Tormenta con granizo fuerte",
+    "icon": 395
   }
 ]
