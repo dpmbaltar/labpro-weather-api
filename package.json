@@ -6,17 +6,13 @@
   "scripts": {
     "start": "run-s build serve",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "test:script": "tsc && node dist/api/test.js",
     "serve": "node dist/api/app.js",
     "build": "run-s clean mkdirs copy typescript",
     "typescript": "tsc",
     "clean": "rm -rf ./dist",
-    "mkdirs": "mkdir ./dist ./dist/api ./dist/app",
+    "mkdirs": "mkdir ./dist ./dist/api",
     "copy": "run-s copy:*",
-    "copy:bootstrap": "cp node_modules/bootstrap/dist/css/bootstrap.min.css app/css/bootstrap.min.css",
-    "copy:bootstrapjs": "cp node_modules/bootstrap/dist/js/bootstrap.min.js app/js/bootstrap.min.js",
-    "copy:navigo": "cp node_modules/navigo/lib/navigo.min.js app/js/navigo.min.js",
-    "copy:src": "cp -r ./app/* ./dist/app"
+    "copy:json": "cp -rf ./api/*.json ./dist/api/"
   },
   "repository": {
     "type": "git",
@@ -32,6 +28,7 @@
     "axios": "^1.2.1",
     "bootstrap": "^5.2.3",
     "bootstrap-icons": "^1.10.3",
+    "cors": "^2.8.5",
     "express": "^4.18.2",
     "joi": "^17.7.0",
     "mongodb": "^4.12.1",

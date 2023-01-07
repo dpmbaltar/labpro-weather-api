@@ -1,8 +1,8 @@
 import express from 'express'
 import bodyParser from 'body-parser'
+import cors from 'cors'
 import path from 'path'
-import axios from 'axios'
-import joi from 'joi';
+import fs from 'fs'
 import { connection } from './connection'
 import { WeatherCache, WeatherService, WeatherQuerySchema } from './weather'
 
@@ -12,16 +12,34 @@ const app = express()
 
 app.use(express.static(staticDir))
 app.use(bodyParser.urlencoded({ extended: true }))
-app.use(bodyParser.json());
+app.use(bodyParser.json())
+app.use(cors())
+
+/**
+ * Obtiene las posibles condiciones del tiempo:
+ * - código
+ * - texto de día
+ * - texto de noche
+ * - ícono
+ */
+app.get('/api/weather/conditions', (req, res) => {
+  try {
+    const rawdata = fs.readFileSync('./api/conditions.json')
+    const conditions = JSON.parse(rawdata.toString())
+    res.status(200).json(conditions)
+  } catch (e) {
+    console.error(e)
+    return res.status(500).json()
+  }
+})
 
 /**
  * Obtiene el pronóstico por fecha mayor o igual al día de hoy.
  * @todo
  */
 app.get('/api/weather/:year/:month/:day', async (req, res) => {
-  const { params, query } = req
-  const { year = 1900, month = 1, day = 1 } = params
-  const { lat = 0, lon = 0 } = query
+  const { year = 1900, month = 1, day = 1 } = req.params
+  const { lat = 0, lon = 0 } = req.query
   const { error, value:weatherQuery } = WeatherQuerySchema.validate({
     date: new Date(year, month, day),
     latitude: lat,
@@ -36,9 +54,9 @@ app.get('/api/weather/:year/:month/:day', async (req, res) => {
   const weather = await weatherCache.current(weatherQuery)
 
   if (weather.error)
-    return res.status(400).json({ error: weather.error })
-  else if (weather.weather)
-    return res.status(200).json(weather.weather)
+    return res.status(400).json(weather)
+  else if (weather)
+    return res.status(200).json(weather)
   else
     return res.status(404)
 })
@@ -47,8 +65,7 @@ app.get('/api/weather/:year/:month/:day', async (req, res) => {
  * Obtiene el pronóstico actual.
  */
 app.get('/api/weather/current', async (req, res) => {
-  const { params, query } = req
-  const { lat = 0, lon = 0 } = query
+  const { lat = 0, lon = 0 } = req.query
   const { error, value:weatherQuery } = WeatherQuerySchema.validate({
     latitude: lat,
     longitude: lon,
@@ -62,9 +79,10 @@ app.get('/api/weather/current', async (req, res) => {
   const weather = await weatherCache.current(weatherQuery)
 
   if (weather.error)
-    return res.status(400).json({ error: weather.error })
-  else if (weather.weather)
-    return res.status(200).json(weather.weather)
+    return res.status(400).json(weather)
+  else if (weather)
+    //return res.set("Access-Control-Allow-Origin", "*").status(200).json(weather)
+    return res.status(200).json(weather)
   else
     return res.status(404)
 })
@@ -88,82 +106,12 @@ app.get('/api/weather/current', async (req, res) => {
   const weather = await weatherCache.forecast(weatherQuery)
 
   if (weather.error)
-    return res.status(400).json({ error: weather.error })
-  else if (weather.weather)
-    return res.status(200).json(weather.weather)
+    return res.status(400).json(weather)
+  else if (weather)
+    return res.status(200).json(weather)
   else
     return res.status(404)
 })
-
-/*app.get('/api/weather/:year/:month/:day', (req, res) => {
-  const { params } = req // const params = req.params
-  const { year = 1900, month = 1, day = 1 } = params
-  const { error, value:weatherDate } = joi.date().iso().validate(`${year}-${month}-${day}`)
-
-  if (error)
-    return res.status(400).json({error: error})
-
-  try {
-    // Leer datos del archivo
-    let rawdata = fs.readFileSync(dbFile)
-    let db = JSON.parse(rawdata)
-
-    // Buscar fecha
-    let found = db.forecast.find(weather => {
-      const d1 = Date.parse(weather.date)
-      const d2 = weatherDate
-      return d1.valueOf() === d2.valueOf()
-    })
-
-    // Devolver el elemento si fue encontrado
-    if (found)
-      res.status(200).json(found)
-    else
-      res.status(404).send()
-
-  } catch (e) {
-    console.log(`Error al leer archivo db.json: ${e}`)
-    return res.status(500).json()
-  }
-})
-
-app.get('/api/weather/forecast', (req, res) => {
-  const { query:queryParams } = req // const queryParams = req.query
-  const { error, value } = valid.weatherParamsSchema.validate(queryParams)
-
-  if (error)
-    return res.status(400).json({error: error})
-
-  try {
-    // Leer datos del archivo
-    let rawdata = fs.readFileSync(dbFile)
-    let db = JSON.parse(rawdata)
-
-    // Establecer params por defecto
-    let { from = 0, days = 1 } = value
-    let date = new Date(new Date().getTime()) //+ (from*24*60*60*1000));
-
-    // Buscar días a partir de hoy
-    let found = db.forecast.find(weather => {
-      const d1 = parseInt(new String(Date.parse(weather.date).valueOf()/1000/60/60/24).toString())
-      const d2 = parseInt(new String(date.valueOf()/1000/60/60/24).toString())
-      return d1 == d2
-    })
-
-    // Buscar "days" cantidad de días desde el día de hoy + "from" días
-    let start = db.forecast.indexOf(found)
-    let forecast = db.forecast.slice(from + start, from + start + days)
-    let total = db.forecast.length - start // Cantidad de días a paginar
-
-    res.status(200).json({
-      total: total,
-      forecast: forecast
-    })
-  } catch (e) {
-    console.log(`Error inesperado: ${e}`)
-    return res.status(500).json()
-  }
-})*/
 
 /**
  * Crear pronóstico

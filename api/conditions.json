@@ -1,0 +1,38 @@
+[
+  {
+    "code": 0,
+    "day": "Soleado",
+    "night": "Despejado",
+    "icon": 113
+  },
+  {
+    "code": 1,
+    "day": "Generalmente despejado",
+    "night": "Generalmente despejado",
+    "icon": 113
+  },
+  {
+    "code": 2,
+    "day": "Parcialmente nublado",
+    "night": "Parcialmente nublado",
+    "icon": 116
+  },
+  {
+    "code": 3,
+    "day": "Nublado",
+    "night": "Nublado",
+    "icon": 122
+  },
+  {
+    "code": 45,
+    "day": "Niebla",
+    "night": "Niebla",
+    "icon": 143
+  },
+  {
+    "code": 48,
+    "day": "Niebla de escarcha",
+    "night": "Niebla de escarcha",
+    "icon": 143
+  }
+]
