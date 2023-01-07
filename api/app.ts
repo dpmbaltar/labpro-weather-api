@@ -1,16 +1,13 @@
 import express from 'express'
 import bodyParser from 'body-parser'
 import cors from 'cors'
-import path from 'path'
 import fs from 'fs'
 import { connection } from './connection'
 import { WeatherCache, WeatherService, WeatherQuerySchema } from './weather'
 
 const port = 9000
-const staticDir = path.dirname(__dirname) + '/app'
 const app = express()
 
-app.use(express.static(staticDir))
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
 app.use(cors())
