@@ -1,7 +1,7 @@
 {
-  "name": "labpro-weather-app",
+  "name": "labpro-weather-api",
   "version": "1.0.0",
-  "description": "Weather App",
+  "description": "Laboratorio de Programación, Weather API",
   "main": "dist/api/app.js",
   "scripts": {
     "start": "run-s build serve",
@@ -16,23 +16,20 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dpmbaltar/labpro-weather-app.git"
+    "url": "git+https://github.com/dpmbaltar/labpro-weather-api.git"
   },
   "author": "Diego Pablo Matias Baltar <diego.baltar@est.fi.uncoma.edu.ar>",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/dpmbaltar/labpro-weather-app/issues"
+    "url": "https://github.com/dpmbaltar/labpro-weather-api/issues"
   },
-  "homepage": "https://github.com/dpmbaltar/labpro-weather-app#readme",
+  "homepage": "https://github.com/dpmbaltar/labpro-weather-api#readme",
   "dependencies": {
     "axios": "^1.2.1",
-    "bootstrap": "^5.2.3",
-    "bootstrap-icons": "^1.10.3",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "joi": "^17.7.0",
-    "mongodb": "^4.12.1",
-    "navigo": "7.1.2"
+    "mongodb": "^4.12.1"
   },
   "devDependencies": {
     "npm-run-all": "^4.1.5",
