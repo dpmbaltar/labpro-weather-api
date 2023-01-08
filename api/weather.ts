@@ -1,7 +1,7 @@
 import { Collection } from 'mongodb'
 import axios from 'axios'
 import joi from 'joi'
-import {   dbConfig,   weatherServiceConfig } from './config.js'
+import { dbConfig, weatherServiceConfig } from './config.js'
 
 export const WeatherQuerySchema = joi.object({
   latitude: joi.number().min(-90).max(90).required(),
@@ -15,93 +15,106 @@ export interface WeatherQuery {
   date?: Date
 }
 
+export interface Location {
+  name: string
+  region: string
+  country: string
+  latitude: number
+  longitude: number
+  elevation: number
+  timezone: string
+  timezone_abbreviation: string
+  utc_offset_seconds: number
+}
+
+export interface CurrentWeather {
+  time: string
+  temperature: number
+  feelslike: number
+  humidity: number
+  windspeed: number
+  winddirection: number
+  weathercode: number
+  uv: number
+  is_day: number
+}
+
+export interface HourlyUnits {
+  time: string
+  temperature_2m: string
+  relativehumidity_2m: string
+  dewpoint_2m: string
+  apparent_temperature: string
+  precipitation: string
+  weathercode: string
+  surface_pressure: string
+  cloudcover: string
+  visibility: string
+  windspeed_10m: string
+  winddirection_10m: string
+  windgusts_10m: string
+  shortwave_radiation: string
+}
+
+export interface Hourly {
+  time: string[]
+  temperature_2m: number[]
+  relativehumidity_2m: number[]
+  dewpoint_2m: number[]
+  apparent_temperature: number[]
+  precipitation: number[]
+  weathercode: number[]
+  surface_pressure: number[]
+  cloudcover: number[]
+  visibility: number[]
+  windspeed_10m: number[]
+  winddirection_10m: number[]
+  windgusts_10m: number[]
+  shortwave_radiation: number[]
+}
+
+export interface DailyUnits {
+  time: string
+  weathercode: string
+  temperature_2m_max: string
+  temperature_2m_min: string
+  apparent_temperature_max: string
+  apparent_temperature_min: string
+  sunrise: string
+  sunset: string
+  precipitation_sum: string
+  precipitation_hours: string
+  windspeed_10m_max: string
+  windgusts_10m_max: string
+  winddirection_10m_dominant: string
+  shortwave_radiation_sum: string
+}
+
+export interface Daily {
+  time: string
+  weathercode: number
+  temperature_2m_max: number
+  temperature_2m_min: number
+  apparent_temperature_max: number
+  apparent_temperature_min: number
+  sunrise: string
+  sunset: string
+  precipitation_sum: number
+  precipitation_hours: number
+  windspeed_10m_max: number
+  windgusts_10m_max: number
+  winddirection_10m_dominant: number
+  shortwave_radiation_sum: number
+}
+
 export interface WeatherResult {
-  location?: {
-    name: string
-    region: string
-    country: string
-    latitude: number
-    longitude: number
-    elevation: number
-    timezone: string
-    timezone_abbreviation: string
-    utc_offset_seconds: number
-  }
-  current_weather?: {
-    temperature: number
-    windspeed: number
-    winddirection: number
-    weathercode: number
-    time: string
-  }
-  hourly_units?: {
-    time: string
-    temperature_2m: string
-    relativehumidity_2m: string
-    dewpoint_2m: string
-    apparent_temperature: string
-    precipitation: string
-    weathercode: string
-    surface_pressure: string
-    cloudcover: string
-    visibility: string
-    windspeed_10m: string
-    winddirection_10m: string
-    windgusts_10m: string
-    shortwave_radiation: string
-  }
-  hourly?: {
-    time: string[]
-    temperature_2m: number[]
-    relativehumidity_2m: number[]
-    dewpoint_2m: number[]
-    apparent_temperature: number[]
-    precipitation: number[]
-    weathercode: number[]
-    surface_pressure: number[]
-    cloudcover: number[]
-    visibility: number[]
-    windspeed_10m: number[]
-    winddirection_10m: number[]
-    windgusts_10m: number[]
-    shortwave_radiation: number[]
-  }
-  daily_units?: {
-    time: string
-    weathercode: string
-    temperature_2m_max: string
-    temperature_2m_min: string
-    apparent_temperature_max: string
-    apparent_temperature_min: string
-    sunrise: string
-    sunset: string
-    precipitation_sum: string
-    precipitation_hours: string
-    windspeed_10m_max: string
-    windgusts_10m_max: string
-    winddirection_10m_dominant: string
-    shortwave_radiation_sum: string
-  }
-  daily?: {
-    time: string
-    weathercode: number
-    temperature_2m_max: number
-    temperature_2m_min: number
-    apparent_temperature_max: number
-    apparent_temperature_min: number
-    sunrise: string
-    sunset: string
-    precipitation_sum: number
-    precipitation_hours: number
-    windspeed_10m_max: number
-    windgusts_10m_max: number
-    winddirection_10m_dominant: number
-    shortwave_radiation_sum: number
-  }
-  error?: {
-    code: number
-    message: string
-  }
+  location?: Location
+  current_weather?: CurrentWeather
+  hourly_units?: HourlyUnits
+  hourly?: Hourly
+  daily_units?: DailyUnits
+  daily?: Daily
+  error?: any
 }
 
 export interface Weather {
@@ -162,6 +175,8 @@ export class WeatherService implements Weather {
           },
           current_weather: {
             ...openmeteo.current_weather,
+            feelslike: weatherapi.current.feelslike_c,
+            humidity: weatherapi.current.humidity,
             uv: weatherapi.current.uv,
             is_day: weatherapi.current.is_day
           },
