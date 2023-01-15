@@ -1,16 +1,20 @@
-import express from 'express'
-import bodyParser from 'body-parser'
-import cors from 'cors'
-import fs from 'fs'
-import { connection } from './connection'
-import { WeatherCache, WeatherService, WeatherQuerySchema } from './weather'
+import express from 'express';
+import bodyParser from 'body-parser';
+import cors from 'cors';
+import fs from 'fs';
+import { connection } from './connection';
+import {
+  WeatherForecastCache,
+  WeatherForecastService,
+  WeatherQuerySchema
+} from './weather-forecast';
 
-const port = 9000
-const app = express()
+const port = 9000;
+const app = express();
 
-app.use(bodyParser.urlencoded({ extended: true }))
-app.use(bodyParser.json())
-app.use(cors())
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+app.use(cors());
 
 /**
  * Obtiene las posibles condiciones del tiempo:
@@ -21,94 +25,83 @@ app.use(cors())
  */
 app.get('/api/weather/conditions', (req, res) => {
   try {
-    const rawdata = fs.readFileSync('./api/conditions.json')
-    const conditions = JSON.parse(rawdata.toString())
-    res.status(200).json(conditions)
+    const rawdata = fs.readFileSync('./api/conditions.json');
+    const conditions = JSON.parse(rawdata.toString());
+    res.status(200).json(conditions);
   } catch (e) {
-    console.error(e)
-    return res.status(500).json()
+    console.error(e);
+    return res.status(500).json();
   }
-})
+});
 
 /**
  * Obtiene el pronóstico por fecha mayor o igual al día de hoy.
  * @todo
  */
 app.get('/api/weather/:year/:month/:day', async (req, res) => {
-  const { year = 1900, month = 1, day = 1 } = req.params
-  const { lat = 0, lon = 0 } = req.query
+  const { year, month, day } = req.params;
+  const { latitude, longitude } = req.query;
   const { error, value:weatherQuery } = WeatherQuerySchema.validate({
-    date: new Date(year, month, day),
-    latitude: lat,
-    longitude: lon,
-  })
+    latitude: latitude,
+    longitude: longitude,
+    date: new Date(year, month, day)
+  });
 
   if (error)
-    return res.status(400).json({ error: error })
+    return res.status(400).json({ error: error });
 
-  const cacheCollection = await connection.getCache()
-  const weatherCache = new WeatherCache(cacheCollection, new WeatherService())
-  const weather = await weatherCache.current(weatherQuery)
+  const cacheColl = await connection.getCache();
+  const weatherService = new WeatherForecastService();
+  const weatherCache = new WeatherForecastCache(cacheColl, weatherService);
 
-  if (weather.error)
-    return res.status(400).json(weather)
-  else if (weather)
-    return res.status(200).json(weather)
-  else
-    return res.status(404)
-})
+  weatherCache.hourly(weatherQuery)
+    .then(weather => res.status(200).json(weather))
+    .catch(error => res.status(404).json(error));
+});
 
 /**
  * Obtiene el pronóstico actual.
  */
 app.get('/api/weather/current', async (req, res) => {
-  const { lat = 0, lon = 0 } = req.query
+  const { latitude, longitude } = req.query;
   const { error, value:weatherQuery } = WeatherQuerySchema.validate({
-    latitude: lat,
-    longitude: lon,
-  })
+    latitude: latitude,
+    longitude: longitude
+  });
 
   if (error)
-    return res.status(400).json({ error: error })
+    return res.status(400).json({ error: error });
 
-  const cacheCollection = await connection.getCache()
-  const weatherCache = new WeatherCache(cacheCollection, new WeatherService())
-  const weather = await weatherCache.current(weatherQuery)
+  const cacheColl = await connection.getCache();
+  const weatherService = new WeatherForecastService();
+  const weatherCache = new WeatherForecastCache(cacheColl, weatherService);
 
-  if (weather.error)
-    return res.status(400).json(weather)
-  else if (weather)
-    //return res.set("Access-Control-Allow-Origin", "*").status(200).json(weather)
-    return res.status(200).json(weather)
-  else
-    return res.status(404)
-})
+  weatherCache.current(weatherQuery)
+    .then(weather => res.status(200).json(weather))
+    .catch(error => res.status(404).json(error));
+});
 
 /**
  * Obtiene el pronóstico de los días siguientes.
- * @todo
  */
  app.get('/api/weather/forecast', async (req, res) => {
-  const { lat = 0, lon = 0 } = req.query
+  const { latitude, longitude } = req.query;
   const { error, value:weatherQuery } = WeatherQuerySchema.validate({
-    latitude: lat,
-    longitude: lon,
-  })
+    latitude: latitude,
+    longitude: longitude
+  });
 
   if (error)
-    return res.status(400).json({ error: error })
+    return res.status(400).json({ error: error });
 
-  const cacheCollection = await connection.getCache()
-  const weatherCache = new WeatherCache(cacheCollection, new WeatherService())
-  const weather = await weatherCache.forecast(weatherQuery)
+  const cacheColl = await connection.getCache();
+  const weatherService = new WeatherForecastService();
+  const weatherCache = new WeatherForecastCache(cacheColl, weatherService);
 
-  if (weather.error)
-    return res.status(400).json(weather)
-  else if (weather)
-    return res.status(200).json(weather)
-  else
-    return res.status(404)
-})
+  weatherCache.daily(weatherQuery)
+    .then(weather => res.status(200).json(weather))
+    .catch(error => res.status(404).json(error));
+});
 
 /**
  * Crear pronóstico
