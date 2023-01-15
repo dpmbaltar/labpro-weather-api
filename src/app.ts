@@ -36,7 +36,6 @@ app.get('/api/weather/conditions', (req, res) => {
 
 /**
  * Obtiene el pronóstico por fecha mayor o igual al día de hoy.
- * @todo
  */
 app.get('/api/weather/:year/:month/:day', async (req, res) => {
   const { year, month, day } = req.params;
@@ -44,7 +43,7 @@ app.get('/api/weather/:year/:month/:day', async (req, res) => {
   const { error, value:weatherQuery } = WeatherQuerySchema.validate({
     latitude: latitude,
     longitude: longitude,
-    date: new Date(year, month, day)
+    date: new Date(parseInt(year), parseInt(month)-1, parseInt(day))
   });
 
   if (error)

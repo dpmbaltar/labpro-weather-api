@@ -322,9 +322,64 @@ export class WeatherForecastCache implements WeatherForecast {
 
   public hourly(query: WeatherQuery): Promise<Weather> {
     console.log('WeatherForecastCache: Handling hourly() request');
-    console.warn('WeatherForecastCache: hourly() not implemented!');
-    return new Promise<Weather>((resolve, reject) => {
-      reject(null);
+    return new Promise<Weather>(async (resolve, reject) => {
+      if (!query.date)
+        return reject({ error: { code: 400, reason: 'Undefined date' } });
+
+      const date = query.date;
+      const today = new Date();
+      let day = 0;
+      day += Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+      day -= Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+      day /= 1000 * 60 * 60 * 24;
+
+      if (day < 0 || day > 7)
+        return reject({ error: { code: 400, reason: 'Date is out of range' } });
+
+      const start = day * 24;
+      const end = start + 24;
+
+      this.findWeather(query, {
+        location: 1,
+        "hourly.time": { $slice: [start, 24] },
+        "hourly.temperature_2m": { $slice: [start, 24] },
+        "hourly.relativehumidity_2m": { $slice: [start, 24] },
+        "hourly.dewpoint_2m": { $slice: [start, 24] },
+        "hourly.apparent_temperature": { $slice: [start, 24] },
+        "hourly.precipitation": { $slice: [start, 24] },
+        "hourly.weathercode": { $slice: [start, 24] },
+        "hourly.surface_pressure": { $slice: [start, 24] },
+        "hourly.cloudcover": { $slice: [start, 24] },
+        "hourly.visibility": { $slice: [start, 24] },
+        "hourly.windspeed_10m": { $slice: [start, 24] },
+        "hourly.winddirection_10m": { $slice: [start, 24] },
+        "hourly.windgusts_10m": { $slice: [start, 24] },
+        hourly_units: 1,
+        _id: 0
+      })
+        .then(result => {
+          if (result) {
+            resolve(result);
+          } else {
+            this.service.hourly(query)
+              .then(result => {
+                this.save(result)
+                  .then(saved => {
+                    Object.keys(result.hourly).forEach(key => {
+                      result.hourly[key] = result.hourly[key].slice(start, end);
+                    });
+                    resolve({
+                      location: result.location,
+                      hourly: result.hourly,
+                      hourly_units: result.hourly_units
+                    });
+                  });
+              })
+              .catch(error => {
+                reject(error);
+              });
+          }
+        });
     });
   }
 
