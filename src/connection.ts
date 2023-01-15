@@ -1,5 +1,5 @@
 import { MongoClient } from 'mongodb'
-import { dbConfig } from './config.js'
+import { dbConfig } from './config'
 
 class Connection {
 
