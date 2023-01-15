@@ -5,11 +5,11 @@
     "target": "es6",
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "rootDir": "api",
+    "rootDir": "src",
     "sourceMap": true,
-    "outDir": "dist/api"
+    "outDir": "dist"
   },
   "lib": ["es2015"],
-  "include": ["api/**/*.ts"],
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "**/*.spec.ts"]
 }

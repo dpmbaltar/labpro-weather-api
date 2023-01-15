@@ -5,14 +5,14 @@
   "main": "dist/api/app.js",
   "scripts": {
     "start": "run-s build serve",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "serve": "node dist/api/app.js",
+    "test": "jest",
+    "serve": "node dist/app.js",
     "build": "run-s clean mkdirs copy typescript",
     "typescript": "tsc",
     "clean": "rm -rf ./dist",
-    "mkdirs": "mkdir ./dist ./dist/api",
+    "mkdirs": "mkdir ./dist",
     "copy": "run-s copy:*",
-    "copy:json": "cp -rf ./api/*.json ./dist/api/"
+    "copy:json": "cp -rf ./src/*.json ./dist/"
   },
   "repository": {
     "type": "git",
@@ -29,9 +29,17 @@
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "joi": "^17.7.0",
-    "mongodb": "^4.12.1"
+    "mongodb": "^4.12.1",
+    "ts-transformer-keys": "^0.4.4"
   },
   "devDependencies": {
+    "@babel/core": "^7.20.12",
+    "@babel/preset-env": "^7.20.2",
+    "@babel/preset-typescript": "^7.18.6",
+    "@types/jest": "^29.2.5",
+    "babel-jest": "^29.3.1",
+    "http-request-mock": "^1.8.6",
+    "jest": "^29.3.1",
     "npm-run-all": "^4.1.5",
     "typescript": "^4.9.4"
   }

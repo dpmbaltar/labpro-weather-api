@@ -25,7 +25,7 @@ app.use(cors());
  */
 app.get('/api/weather/conditions', (req, res) => {
   try {
-    const rawdata = fs.readFileSync('./api/conditions.json');
+    const rawdata = fs.readFileSync('./src/conditions.json');
     const conditions = JSON.parse(rawdata.toString());
     res.status(200).json(conditions);
   } catch (e) {
