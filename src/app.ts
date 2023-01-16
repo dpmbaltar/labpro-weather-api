@@ -2,19 +2,32 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
 import fs from 'fs';
-import { connection } from './connection';
+import * as db from './connection';
 import {
   WeatherForecastCache,
   WeatherForecastService,
   WeatherQuerySchema
 } from './weather-forecast';
 
+let weatherCache;
 const port = 9000;
 const app = express();
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cors());
+
+db.connect()
+  .then(client => {
+    const cacheCollection = db.cache();
+    const weatherService = new WeatherForecastService();
+    weatherCache = new WeatherForecastCache(cacheCollection, weatherService);
+
+    app.listen(port, () => {
+      return console.log(`Listening at http://localhost:${port}`);
+    })
+  })
+  .catch(error => console.error(error));
 
 /**
  * Obtiene las posibles condiciones del tiempo:
@@ -49,10 +62,6 @@ app.get('/api/weather/:year/:month/:day', async (req, res) => {
   if (error)
     return res.status(400).json({ error: error });
 
-  const cacheColl = await connection.getCache();
-  const weatherService = new WeatherForecastService();
-  const weatherCache = new WeatherForecastCache(cacheColl, weatherService);
-
   weatherCache.hourly(weatherQuery)
     .then(weather => res.status(200).json(weather))
     .catch(error => res.status(404).json(error));
@@ -70,10 +79,6 @@ app.get('/api/weather/current', async (req, res) => {
 
   if (error)
     return res.status(400).json({ error: error });
-
-  const cacheColl = await connection.getCache();
-  const weatherService = new WeatherForecastService();
-  const weatherCache = new WeatherForecastCache(cacheColl, weatherService);
 
   weatherCache.current(weatherQuery)
     .then(weather => res.status(200).json(weather))
@@ -93,56 +98,7 @@ app.get('/api/weather/current', async (req, res) => {
   if (error)
     return res.status(400).json({ error: error });
 
-  const cacheColl = await connection.getCache();
-  const weatherService = new WeatherForecastService();
-  const weatherCache = new WeatherForecastCache(cacheColl, weatherService);
-
   weatherCache.daily(weatherQuery)
     .then(weather => res.status(200).json(weather))
     .catch(error => res.status(404).json(error));
 });
-
-/**
- * Crear pronóstico
- */
-/*app.post('/api/weather', (req, res) => {
-  const { body:newWeather } = req
-  const { error, value:newValidWeather } = valid.weatherSchema.validate(newWeather)
-
-  if (error)
-    return res.status(400).json({ error: error })
-
-  try {
-    // Leer archivo dbschema.js
-    let rawdata = fs.readFileSync(dbFile)
-    let db = JSON.parse(rawdata)
-    let found = db.forecast.find(element => {
-      const d1 = Date.parse(element.date)
-      const d2 = Date.parse(newValidWeather.date)
-      return d1.valueOf() === d2.valueOf()
-    })
-
-    // Verificar si el elemento existe
-    if (found)
-      return res.status(400).json({error: 'El elemento ya existe'})
-
-    // Modificar arreglo de datos
-    db.forecast.push(newValidWeather)
-
-    // convert JSON object to a string
-    const data = JSON.stringify(db, null, 2);
-
-    // Guardar archivo modificado
-    fs.writeFileSync(dbFile, data, 'utf8');
-
-    res.status(200).json(newValidWeather)
-
-  } catch (e) {
-    console.log(`Error al leer archivo db.json: ${e}`)
-    return res.status(500).json()
-  }
-})*/
-
-app.listen(port, () => {
-  return console.log(`Listening at http://localhost:${port}`)
-})

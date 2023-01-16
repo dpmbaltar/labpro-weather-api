@@ -1,43 +1,36 @@
-import { MongoClient } from 'mongodb'
-import { dbConfig } from './config'
+import { Collection, MongoClient } from 'mongodb';
+import { dbConfig } from './config';
 
-class Connection {
+let client;
+let connection;
+const collections = {
+  cache: null
+};
 
-  private client: MongoClient
-  private connection = null
-
-  constructor() {
-    this.client = new MongoClient(dbConfig.uri)
-  }
-
-  async connect() {
-    if (!this.connection) {
-      try {
-        this.connection = await this.client.connect()
-      } catch (e) {
-        console.error(e)
-      }
+export function connect(): Promise<MongoClient> {
+  return new Promise<MongoClient>((resolve, reject) => {
+    if (!connection) {
+      client = new MongoClient(dbConfig.uri);
+      connection = client.connect()
+        .then(initCache)
+        .catch(error => reject(error));
     }
 
-    return this.connection
-  }
-
-  async close() {
-    return await this.client.close()
-  }
-
-  async getCache() {
-    const connection = await this.connect()
-    const db = connection.db(dbConfig.name)
-    const collection = db.collection(dbConfig.collections.cache)
-
-    collection.createIndex({ _location: "2dsphere" })
-    collection.createIndex({ _timestamp: -1 }, {
-      expireAfterSeconds: dbConfig.options.cacheTtl
-    })
-
-    return collection
-  }
+    resolve(connection);
+  });
 }
 
-export const connection = new Connection()
+export function cache(): Collection {
+  return collections.cache;
+}
+
+function initCache(client: MongoClient) {
+  const db = client.db(dbConfig.name);
+  collections.cache = db.collection(dbConfig.collections.cache);
+  collections.cache.createIndex({ _location: "2dsphere" });
+  collections.cache.createIndex({ _timestamp: -1 }, {
+    expireAfterSeconds: dbConfig.options.cacheTtl
+  });
+
+  return client;
+}
