@@ -1,7 +1,9 @@
+import fs from 'fs';
+import http from 'http';
+import https from 'https';
 import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
-import fs from 'fs';
 import * as db from './connection';
 import {
   WeatherForecastCache,
@@ -10,8 +12,15 @@ import {
 } from './weather-forecast';
 
 let weatherCache;
+
 const port = 9000;
+const portSecure = 9001;
+const privateKey  = fs.readFileSync('./ssl/server.key', 'utf8');
+const certificate = fs.readFileSync('./ssl/server.crt', 'utf8');
+const credentials = { key: privateKey, cert: certificate };
 const app = express();
+const httpServer = http.createServer(app);
+const httpsServer = https.createServer(credentials, app);
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
@@ -23,9 +32,12 @@ db.connect()
     const weatherService = new WeatherForecastService();
     weatherCache = new WeatherForecastCache(cacheCollection, weatherService);
 
-    app.listen(port, () => {
+    httpServer.listen(port, () => {
       return console.log(`Listening at http://localhost:${port}`);
-    })
+    });
+    /*httpsServer.listen(portSecure, () => {
+      return console.log(`Listening at https://localhost:${portSecure}`);
+    });*/
   })
   .catch(error => console.error(error));
 
