@@ -17,7 +17,7 @@ export interface WeatherQuery {
   date?: Date;
 }
 
-export interface Location {
+export interface WeatherLocation {
   name: string;
   region: string;
   country: string;
@@ -25,93 +25,60 @@ export interface Location {
   longitude: number;
   elevation: number;
   timezone: string;
-  timezone_abbreviation: string;
-  utc_offset_seconds: number;
+  timezoneAbbreviation: string;
+  utcOffsetSeconds: number;
 }
 
 export interface CurrentWeather {
   time: string;
   temperature: number;
-  feelslike: number;
+  apparentTemperature: number;
+  precipitation: number;
   humidity: number;
-  windspeed: number;
-  winddirection: number;
-  weathercode: number;
+  windSpeed: number;
+  windDirection: number;
   uv: number;
-  is_day: number;
-}
-
-export interface HourlyWeatherUnits {
-  time: string;
-  temperature_2m: string;
-  relativehumidity_2m: string;
-  dewpoint_2m: string;
-  apparent_temperature: string;
-  precipitation: string;
-  weathercode: string;
-  surface_pressure: string;
-  cloudcover: string;
-  visibility: string;
-  windspeed_10m: string;
-  winddirection_10m: string;
-  windgusts_10m: string;
-}
-
-export interface HourlyWeather {
-  time: string[];
-  temperature_2m: number[];
-  relativehumidity_2m: number[];
-  dewpoint_2m: number[];
-  apparent_temperature: number[];
-  precipitation: number[];
-  weathercode: number[];
-  surface_pressure: number[];
-  cloudcover: number[];
-  visibility: number[];
-  windspeed_10m: number[];
-  winddirection_10m: number[];
-  windgusts_10m: number[];
-}
-
-export interface DailyWeatherUnits {
-  time: string;
-  weathercode: string;
-  temperature_2m_max: string;
-  temperature_2m_min: string;
-  apparent_temperature_max: string;
-  apparent_temperature_min: string;
-  sunrise: string;
-  sunset: string;
-  precipitation_sum: string;
-  precipitation_hours: string;
-  windspeed_10m_max: string;
-  windgusts_10m_max: string;
-  winddirection_10m_dominant: string;
+  isDay: number;
+  weatherCode: number;
 }
 
 export interface DailyWeather {
   time: string;
-  weathercode: number;
-  temperature_2m_max: number;
-  temperature_2m_min: number;
-  apparent_temperature_max: number;
-  apparent_temperature_min: number;
+  temperatureMax: number;
+  temperatureMin: number;
+  apparentTemperatureMax: number;
+  apparentTemperatureMin: number;
   sunrise: string;
   sunset: string;
-  precipitation_sum: number;
-  precipitation_hours: number;
-  windspeed_10m_max: number;
-  windgusts_10m_max: number;
-  winddirection_10m_dominant: number;
+  precipitationSum: number;
+  precipitationHours: number;
+  windSpeedMax: number;
+  windGustsMax: number;
+  windDirection: number;
+  weatherCode: number;
+}
+
+export interface HourlyWeather {
+  time: string[];
+  temperature: number[];
+  apparentTemperature: number[];
+  precipitation: number[];
+  relativeHumidity: number[];
+  dewPoint: number[];
+  cloudCover: number[];
+  visibility: number[];
+  surfacePressure: number[];
+  windSpeed: number[];
+  windDirection: number[];
+  windGusts: number[];
+  weatherCode: number[];
 }
 
 export interface Weather {
-  location?: Location;
+  location?: WeatherLocation;
   current?: CurrentWeather;
-  daily?: DailyWeather;
-  daily_units?: DailyWeatherUnits;
-  hourly?: HourlyWeather;
-  hourly_units?: HourlyWeatherUnits;
+  daily?: DailyWeather[];
+  hourly?: HourlyWeather[];
   error?: any;
 }
 
@@ -131,10 +98,36 @@ export class WeatherForecastService implements WeatherForecast {
         params: {
           latitude: NaN,
           longitude: NaN,
-          hourly: weatherServiceConfig.openmeteo.variables.hourly.join(','),
-          daily: weatherServiceConfig.openmeteo.variables.daily.join(','),
+          timezone: 'auto',
           current_weather: 'true',
-          timezone: 'auto'
+          daily: [
+            "temperature_2m_max",
+            "temperature_2m_min",
+            "apparent_temperature_max",
+            "apparent_temperature_min",
+            "sunrise",
+            "sunset",
+            "precipitation_sum",
+            "precipitation_hours",
+            "windspeed_10m_max",
+            "windgusts_10m_max",
+            "winddirection_10m_dominant",
+            "weathercode"
+          ].join(','),
+          hourly: [
+            "temperature_2m",
+            "apparent_temperature",
+            "precipitation",
+            "relativehumidity_2m",
+            "dewpoint_2m",
+            "cloudcover",
+            "visibility",
+            "surface_pressure",
+            "windspeed_10m",
+            "winddirection_10m",
+            "windgusts_10m",
+            "weathercode"
+          ].join(',')
         }
       },
       weatherapi: {
@@ -193,20 +186,23 @@ export class WeatherForecastService implements WeatherForecast {
               longitude: weatherapi.location.lon,
               elevation: openmeteo.elevation,
               timezone: openmeteo.timezone,
-              timezone_abbreviation: openmeteo.timezone_abbreviation,
-              utc_offset_seconds: openmeteo.utc_offset_seconds,
+              timezoneAbbreviation: openmeteo.timezone_abbreviation,
+              utcOffsetSeconds: openmeteo.utc_offset_seconds,
             },
             current: {
-              ...openmeteo.current_weather,
-              feelslike: weatherapi.current.feelslike_c,
+              time: openmeteo.current_weather.time,
+              temperature: openmeteo.current_weather.temperature,
+              apparentTemperature: weatherapi.current.feelslike_c,
+              precipitation: weatherapi.current.precip_mm,
               humidity: weatherapi.current.humidity,
+              windSpeed: openmeteo.current_weather.windspeed,
+              windDirection: openmeteo.current_weather.winddirection,
               uv: weatherapi.current.uv,
-              is_day: weatherapi.current.is_day
+              isDay: weatherapi.current.is_day,
+              weatherCode: openmeteo.current_weather.weathercode
             },
-            daily: openmeteo.daily,
-            daily_units: openmeteo.daily_units,
-            hourly: openmeteo.hourly,
-            hourly_units: openmeteo.hourly_units
+            daily: this.mapDailyWeather(openmeteo.daily),
+            hourly: this.mapHourlyWeather(openmeteo.hourly)
           };
 
           resolve(weather);
@@ -216,6 +212,56 @@ export class WeatherForecastService implements WeatherForecast {
           reject(error);
         });
     });
+  }
+
+  private mapDailyWeather(openMeteoDaily) {
+    const dailyWeather = [];
+
+    for (let i = 0; i < 7; i++) {
+      dailyWeather.push({
+        time: openMeteoDaily.time[i],
+        temperatureMax: openMeteoDaily.temperature_2m_max[i],
+        temperatureMin: openMeteoDaily.temperature_2m_min[i],
+        apparentTemperatureMax: openMeteoDaily.apparent_temperature_max[i],
+        apparentTemperatureMin: openMeteoDaily.apparent_temperature_min[i],
+        sunrise: openMeteoDaily.sunrise[i],
+        sunset: openMeteoDaily.sunset[i],
+        precipitationSum: openMeteoDaily.precipitation_sum[i],
+        precipitationHours: openMeteoDaily.precipitation_hours[i],
+        windSpeedMax: openMeteoDaily.windspeed_10m_max[i],
+        windGustsMax: openMeteoDaily.windgusts_10m_max[i],
+        windDirection: openMeteoDaily.winddirection_10m_dominant[i],
+        weatherCode: openMeteoDaily.weathercode[i]
+      });
+    }
+
+    return dailyWeather;
+  }
+
+  private mapHourlyWeather(openMeteoHourly) {
+    const hourlyWeather = [];
+
+    for (let i = 0; i < 7; i++) {
+      const start = i * 24;
+      const end = start + 24;
+      hourlyWeather.push({
+        time: openMeteoHourly.time.slice(start, end),
+        temperature: openMeteoHourly.temperature_2m.slice(start, end),
+        apparentTemperature: openMeteoHourly.apparent_temperature.slice(start, end),
+        precipitation: openMeteoHourly.precipitation.slice(start, end),
+        relativeHumidity: openMeteoHourly.relativehumidity_2m.slice(start, end),
+        dewPoint: openMeteoHourly.dewpoint_2m.slice(start, end),
+        cloudCover: openMeteoHourly.cloudcover.slice(start, end),
+        visibility: openMeteoHourly.visibility.slice(start, end),
+        surfacePressure: openMeteoHourly.surface_pressure.slice(start, end),
+        windSpeed: openMeteoHourly.windspeed_10m.slice(start, end),
+        windDirection: openMeteoHourly.winddirection_10m.slice(start, end),
+        windGusts: openMeteoHourly.windgusts_10m.slice(start, end),
+        weatherCode: openMeteoHourly.weathercode.slice(start, end)
+      });
+    }
+
+    return hourlyWeather;
   }
 
 }
@@ -296,7 +342,6 @@ export class WeatherForecastCache implements WeatherForecast {
       this.findWeather(query, {
         location: 1,
         daily: 1,
-        daily_units: 1,
         _id: 0
       })
         .then(result => {
@@ -308,8 +353,7 @@ export class WeatherForecastCache implements WeatherForecast {
                 this.save(result);
                 resolve({
                   location: result.location,
-                  daily: result.daily,
-                  daily_units: result.daily_units
+                  daily: result.daily
                 });
               })
               .catch(error => {
@@ -332,29 +376,14 @@ export class WeatherForecastCache implements WeatherForecast {
       day += Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
       day -= Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
       day /= 1000 * 60 * 60 * 24;
+      day = Math.round(day);
 
-      if (day < 0 || day > 7)
+      if (day < 0 || day > 6)
         return reject({ error: { code: 400, reason: 'Date is out of range' } });
-
-      const start = day * 24;
-      const end = start + 24;
 
       this.findWeather(query, {
         location: 1,
-        "hourly.time": { $slice: [start, 24] },
-        "hourly.temperature_2m": { $slice: [start, 24] },
-        "hourly.relativehumidity_2m": { $slice: [start, 24] },
-        "hourly.dewpoint_2m": { $slice: [start, 24] },
-        "hourly.apparent_temperature": { $slice: [start, 24] },
-        "hourly.precipitation": { $slice: [start, 24] },
-        "hourly.weathercode": { $slice: [start, 24] },
-        "hourly.surface_pressure": { $slice: [start, 24] },
-        "hourly.cloudcover": { $slice: [start, 24] },
-        "hourly.visibility": { $slice: [start, 24] },
-        "hourly.windspeed_10m": { $slice: [start, 24] },
-        "hourly.winddirection_10m": { $slice: [start, 24] },
-        "hourly.windgusts_10m": { $slice: [start, 24] },
-        hourly_units: 1,
+        hourly: { $slice: [day, 1] },
         _id: 0
       })
         .then(result => {
@@ -365,13 +394,9 @@ export class WeatherForecastCache implements WeatherForecast {
               .then(result => {
                 this.save(result)
                   .then(saved => {
-                    Object.keys(result.hourly).forEach(key => {
-                      result.hourly[key] = result.hourly[key].slice(start, end);
-                    });
                     resolve({
                       location: result.location,
-                      hourly: result.hourly,
-                      hourly_units: result.hourly_units
+                      hourly: result.hourly.slice(day, 1)
                     });
                   });
               })
