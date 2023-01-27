@@ -368,7 +368,7 @@ export class WeatherForecastCache implements WeatherForecast {
     console.log('WeatherForecastCache: Handling hourly() request');
     return new Promise<Weather>(async (resolve, reject) => {
       if (!query.date)
-        return reject({ error: { code: 400, reason: 'Undefined date' } });
+        return reject({ error: 'Valid date is required' });
 
       const date = query.date;
       const today = new Date();
@@ -379,7 +379,7 @@ export class WeatherForecastCache implements WeatherForecast {
       day = Math.round(day);
 
       if (day < 0 || day > 6)
-        return reject({ error: { code: 400, reason: 'Date is out of range' } });
+        return reject({ error: 'Date is out of range' });
 
       this.findWeather(query, {
         location: 1,
