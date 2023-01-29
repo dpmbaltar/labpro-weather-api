@@ -38,7 +38,7 @@ export interface CurrentWeather {
   windSpeed: number;
   windDirection: number;
   uv: number;
-  isDay: number;
+  isDay: boolean;
   weatherCode: number;
 }
 
@@ -198,7 +198,7 @@ export class WeatherForecastService implements WeatherForecast {
               windSpeed: openmeteo.current_weather.windspeed,
               windDirection: openmeteo.current_weather.winddirection,
               uv: weatherapi.current.uv,
-              isDay: weatherapi.current.is_day,
+              isDay: weatherapi.current.is_day > 0 ? true : false,
               weatherCode: openmeteo.current_weather.weathercode
             },
             daily: this.mapDailyWeather(openmeteo.daily),
