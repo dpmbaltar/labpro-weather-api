@@ -28,9 +28,16 @@ app.use(cors());
 
 db.connect()
   .then(client => {
-    const cacheCollection = db.cache();
-    const weatherService = new WeatherForecastService();
-    weatherCache = new WeatherForecastCache(cacheCollection, weatherService);
+    try {
+      const rawdata = fs.readFileSync('./src/conditions.json');
+      const weatherConditions = JSON.parse(rawdata.toString());
+      const cacheCollection = db.cache();
+      const weatherService = new WeatherForecastService(weatherConditions);
+      weatherCache = new WeatherForecastCache(cacheCollection, weatherService);
+    } catch (e) {
+      console.error(e);
+      return process.exit(1);
+    }
 
     httpServer.listen(port, () => {
       return console.log(`Listening at http://localhost:${port}`);
@@ -40,24 +47,6 @@ db.connect()
     });*/
   })
   .catch(error => console.error(error));
-
-/**
- * Obtiene las posibles condiciones del tiempo:
- * - código
- * - texto de día
- * - texto de noche
- * - ícono
- */
-app.get('/api/weather/conditions', (req, res) => {
-  try {
-    const rawdata = fs.readFileSync('./src/conditions.json');
-    const conditions = JSON.parse(rawdata.toString());
-    res.status(200).json(conditions);
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: e.message });
-  }
-});
 
 /**
  * Obtiene el pronóstico actual.

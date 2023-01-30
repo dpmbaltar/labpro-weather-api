@@ -39,7 +39,8 @@ export interface CurrentWeather {
   windDirection: number;
   uv: number;
   isDay: boolean;
-  weatherCode: number;
+  conditionText: string;
+  conditionIcon: number;
 }
 
 export interface DailyWeather {
@@ -55,7 +56,8 @@ export interface DailyWeather {
   windSpeedMax: number;
   windGustsMax: number;
   windDirection: number;
-  weatherCode: number;
+  conditionText: string;
+  conditionIcon: number;
 }
 
 export interface HourlyWeather {
@@ -71,7 +73,15 @@ export interface HourlyWeather {
   windSpeed: number[];
   windDirection: number[];
   windGusts: number[];
-  weatherCode: number[];
+  conditionText: string[];
+  conditionIcon: number[];
+}
+
+export interface WeatherCondition {
+  code: number;
+  icon: number;
+  day: string;
+  night: string;
 }
 
 export interface Weather {
@@ -89,6 +99,8 @@ export interface WeatherForecast {
 }
 
 export class WeatherForecastService implements WeatherForecast {
+
+  private conditions = new Map<number, WeatherCondition>;
 
   private request = {
     forecast: {
@@ -146,6 +158,12 @@ export class WeatherForecastService implements WeatherForecast {
     }
   };
 
+  constructor(weatherConditions: WeatherCondition[]) {
+    weatherConditions.forEach(condition => {
+      this.conditions.set(condition.code, condition);
+    });
+  }
+
   public current(query: WeatherQuery): Promise<Weather> {
     console.log('WeatherForecastService: Handling current() request');
     return this.forecast(query);
@@ -199,7 +217,13 @@ export class WeatherForecastService implements WeatherForecast {
               windDirection: openmeteo.current_weather.winddirection,
               uv: weatherapi.current.uv,
               isDay: weatherapi.current.is_day > 0 ? true : false,
-              weatherCode: openmeteo.current_weather.weathercode
+              conditionText: this.conditionText(
+                openmeteo.current_weather.weathercode,
+                weatherapi.current.is_day > 0
+              ),
+              conditionIcon: this.conditionIcon(
+                openmeteo.current_weather.weathercode
+              )
             },
             daily: this.mapDailyWeather(openmeteo.daily),
             hourly: this.mapHourlyWeather(openmeteo.hourly)
@@ -212,6 +236,15 @@ export class WeatherForecastService implements WeatherForecast {
           reject(error);
         });
     });
+  }
+
+  private conditionText(weatherCode: number, isDay: boolean = true) {
+    const condition = this.conditions.get(weatherCode);
+    return isDay ? condition.day : condition.night;
+  }
+
+  private conditionIcon(weatherCode: number) {
+    return this.conditions.get(weatherCode).icon;
   }
 
   private mapDailyWeather(openMeteoDaily) {
@@ -231,7 +264,8 @@ export class WeatherForecastService implements WeatherForecast {
         windSpeedMax: openMeteoDaily.windspeed_10m_max[i],
         windGustsMax: openMeteoDaily.windgusts_10m_max[i],
         windDirection: openMeteoDaily.winddirection_10m_dominant[i],
-        weatherCode: openMeteoDaily.weathercode[i]
+        conditionText: this.conditionText(openMeteoDaily.weathercode[i]),
+        conditionIcon: this.conditionIcon(openMeteoDaily.weathercode[i])
       });
     }
 
@@ -244,6 +278,10 @@ export class WeatherForecastService implements WeatherForecast {
     for (let i = 0; i < 7; i++) {
       const start = i * 24;
       const end = start + 24;
+      const weatherCodes = openMeteoHourly.weathercode.slice(start, end);
+      const conditionTexts = weatherCodes.map(code => this.conditionText(code));
+      const conditionIcons = weatherCodes.map(code => this.conditionIcon(code));
+
       hourlyWeather.push({
         time: openMeteoHourly.time.slice(start, end),
         temperature: openMeteoHourly.temperature_2m.slice(start, end),
@@ -257,7 +295,8 @@ export class WeatherForecastService implements WeatherForecast {
         windSpeed: openMeteoHourly.windspeed_10m.slice(start, end),
         windDirection: openMeteoHourly.winddirection_10m.slice(start, end),
         windGusts: openMeteoHourly.windgusts_10m.slice(start, end),
-        weatherCode: openMeteoHourly.weathercode.slice(start, end)
+        conditionText: conditionTexts,
+        conditionIcon: conditionIcons
       });
     }
 
