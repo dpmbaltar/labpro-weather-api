@@ -31,9 +31,12 @@ db.connect()
     try {
       const rawdata = fs.readFileSync('./src/conditions.json');
       const weatherConditions = JSON.parse(rawdata.toString());
-      const cacheCollection = db.cache();
       const weatherService = new WeatherForecastService(weatherConditions);
-      weatherCache = new WeatherForecastCache(cacheCollection, weatherService);
+      weatherCache = new WeatherForecastCache(
+        db.collections.cache,
+        db.collections.location,
+        weatherService
+      );
     } catch (e) {
       console.error(e);
       return process.exit(1);

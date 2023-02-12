@@ -279,12 +279,6 @@ export class WeatherForecastService implements WeatherForecast {
    * from today backwards should be queried. Finally, if withLocation is true,
    * the location object is included in the response.
    *
-   * For caching purposes, start and end dates are modified to retrieve a whole
-   * month or two. For example, if start date and end date is in the same month,
-   * the whole month is retrieved. If the start and end date are in different
-   * months, the two whole months are retrieved, except if the last month is
-   * the actual month, then the end date is today - 7 days.
-   *
    * @param weatherQuery the weather query
    * @returns a Weather promise
    */
@@ -293,17 +287,19 @@ export class WeatherForecastService implements WeatherForecast {
     return new Promise<Weather>((resolve, reject) => {
       const { latitude, longitude, days, date, withLocation } = weatherQuery;
       const today = new Date();
-      const offsetTime = 1000*60*60*24*7;
+      const maxDays = 62;
+      const offsetDays = 7;
+      const offsetTime = offsetDays * 24*60*60*1000;
       let start: Date, end: Date, totalDays: number;
 
       if (days > 0) {
         start = new Date(date.getTime());
         end = new Date(date.getTime());
-        end.setDate(end.getDate() + Math.min(7, days));
+        end.setDate(end.getDate() + Math.min(maxDays, days - 1));
       } else if (days < 0) {
         end = new Date(date.getTime());
         start = new Date(date.getTime());
-        start.setDate(start.getDate() + Math.max(-7, days));
+        start.setDate(start.getDate() + Math.max(-maxDays, days + 1));
       } else {
         return reject({ error: `Invalid days number (${days})` });
       }
@@ -311,22 +307,12 @@ export class WeatherForecastService implements WeatherForecast {
       if (today.getTime() <= start.getTime() ||
           today.getTime() - offsetTime < end.getTime()) {
         return reject({
-          error: `Invalid date/days values (${date.toUTCString()}/${days})`
+          error: `Invalid date/days values (${date.toISOString()}/${days})`
         });
       }
 
-      if (end.getUTCFullYear() == today.getUTCFullYear() &&
-          end.getUTCMonth() == today.getUTCMonth()) {
-        end.setUTCMonth(today.getUTCMonth());
-        end.setUTCDate(today.getUTCDate() - 5);
-      } else {
-        end.setUTCMonth(end.getUTCMonth() + 1);
-        end.setUTCDate(0);
-      }
-
-      start.setUTCDate(1);
       totalDays = end.getTime() - start.getTime();
-      totalDays/= 1000*60*60*24;
+      totalDays/= 24*60*60*1000;
       totalDays = Math.round(totalDays + 1);
 
       const requests = this.request.historical(latitude, longitude, start, end);
@@ -446,16 +432,11 @@ export class WeatherForecastService implements WeatherForecast {
 
 export class WeatherForecastCache implements WeatherForecast {
 
-  private cache: Collection;
-  private service: WeatherForecastService;
-
   constructor(
-    cacheCollection: Collection,
-    weatherForecastService: WeatherForecastService
-  ) {
-    this.cache = cacheCollection;
-    this.service = weatherForecastService;
-  }
+    private cache: Collection,
+    private location: Collection,
+    private service: WeatherForecastService
+  ) {}
 
   public current(query: WeatherQuery): Promise<Weather> {
     console.log('WeatherForecastCache: Handling current() request');
@@ -608,13 +589,204 @@ export class WeatherForecastCache implements WeatherForecast {
         .catch(error => {
           console.error(error);
           reject({ error: error });
-        })
-    })
+        });
+    });
   }
 
+  /**
+   * Attempts to retrieve the requested weather from database, otherwise uses
+   * the weather service to fullfill the request, and then saves the results for
+   * future requests.
+   *
+   * For caching purposes, start and end dates are modified to retrieve a whole
+   * month or two. For example, if start date and end date is in the same month,
+   * the whole month is retrieved. If the start and end date are in different
+   * months, the two whole months are retrieved, except when the last month is
+   * the current month, then the end date is today - 7 days.
+   *
+   * @param weatherQuery the weather query
+   * @returns the Weather promise
+   */
   historical(weatherQuery: WeatherQuery): Promise<Weather> {
     console.log('WeatherForecastCache: Handling historical() request');
-    return this.service.historical(weatherQuery);
+    return new Promise<Weather>((resolve, reject) => {
+      const { days, date, withLocation } = weatherQuery;
+      const today = new Date();
+      const maxDays = 7;
+      const offsetDays = 7;
+      const offsetTime = offsetDays * 24*60*60*1000;
+      let start: Date, end: Date, totalDays: number;
+
+      if (days > 0) {
+        start = new Date(date.getTime());
+        end = new Date(date.getTime());
+        end.setDate(end.getDate() + Math.min(maxDays, days - 1));
+      } else if (days < 0) {
+        end = new Date(date.getTime());
+        start = new Date(date.getTime());
+        start.setDate(start.getDate() + Math.max(-maxDays, days + 1));
+      } else {
+        return reject({ error: `Invalid days number (${days})` });
+      }
+
+      if (today.getTime() <= start.getTime() ||
+          today.getTime() - offsetTime < end.getTime()) {
+        return reject({
+          error: `Invalid date/days values (${date.toISOString()}/${days})`
+        });
+      }
+
+      this.findHistorical(weatherQuery)
+        .then(result => {
+          if (result) {
+            // TODO: check if location has incomplete or empty daily objects
+            // fill if needed
+            console.log('Location found');
+
+            if (result.daily && result.daily.length > 0) {
+              const daily = result.daily;
+              const foundStart = new Date(daily[0].time);
+              const foundEnd = new Date(daily[daily.length - 1].time);
+
+              console.log('given start: ' + start.toISOString());
+              console.log('found start: ' + foundStart.toISOString());
+              console.log('given end: ' + end.toISOString());
+              console.log('found end: ' + foundEnd.toISOString());
+            }
+
+            resolve(result);
+          } else {
+            // TODO:
+            // Case 1: no location found
+            // - Modify start and end dates to match whole month(s)
+            // - Get location and daily weather from weather service
+            // - Cache results into database
+            // - Filter request as needed and return to client
+            console.log('Location not found');
+            const newStart = new Date(start.getTime());
+            const newEnd = new Date(end.getTime());
+
+            if (newEnd.getUTCFullYear() == today.getUTCFullYear() &&
+                newEnd.getUTCMonth() == today.getUTCMonth()) {
+              newEnd.setUTCMonth(today.getUTCMonth());
+              newEnd.setUTCDate(today.getUTCDate() - offsetDays);
+            } else {
+              newEnd.setUTCMonth(newEnd.getUTCMonth() + 1);
+              newEnd.setUTCDate(0);
+            }
+
+            newStart.setUTCDate(1);
+            totalDays = newEnd.getTime() - newStart.getTime();
+            totalDays/= 24*60*60*1000;
+            totalDays = Math.round(totalDays + 1);
+            weatherQuery['date'] = newStart;
+            weatherQuery['days'] = totalDays;
+            weatherQuery['withLocation'] = true;
+
+            this.service.historical(weatherQuery)
+              .then(weather => {
+                this.saveHistorical(weather)
+                  .finally(() => {
+                    weather.daily = weather.daily.filter(daily => {
+                      const dailyTime = new Date(daily.time).getTime();
+                      const startTime = start.getTime();
+                      const endTime = end.getTime();
+                      return startTime <= dailyTime && dailyTime <= endTime;
+                    });
+
+                    if (!withLocation)
+                      delete weather.location;
+
+                    resolve(weather);
+                  });
+              })
+              .catch(error => {
+                console.error(error);
+                reject({ error: error });
+              });
+          }
+        })
+        .catch(error => {
+          console.error(error);
+          reject({ error: error });
+        });
+    });
+  }
+
+  private findHistorical(query: WeatherQuery): Promise<Weather> {
+    return new Promise<Weather>((resolve, reject) => {
+      const aggregation = [
+        {
+          $geoNear: {
+            near: {
+              type: 'Point',
+              coordinates: [query.longitude, query.latitude]
+            },
+            distanceField: '_location',
+            maxDistance: 5000,
+            spherical: true
+          }
+        },
+        {
+          $limit: 1
+        },
+        {
+          $lookup: {
+            from: 'historical',
+            localField: '_id',
+            foreignField: '_location_id',
+            as: 'daily',
+            pipeline: [
+              {
+                $match: {
+                  date: {
+                    $gte: new Date('2023-01-28'),
+                    $lte: new Date('2023-02-03')
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          $project: {
+            'location.name': '$name',
+            'location.region': '$region',
+            'location.country': '$country',
+            'location.latitude': '$latitude',
+            'location.longitude': '$longitude',
+            'location.elevation': '$elevation',
+            'location.timezone': '$timezone',
+            'location.timezoneAbbreviation': '$timezoneAbbreviation',
+            'location.utcOffsetSeconds': '$utcOffsetSeconds'
+          }
+        },
+        {
+          $project: {
+            '_id': 0,
+            'daily._id': 0,
+            'daily._location_id': 0
+          }
+        }
+      ];
+
+      this.location.aggregate(aggregation).next()
+        .then(result => {
+          resolve(result);
+        })
+        .catch(error => {
+          console.error(error);
+          reject({ error: error });
+        });
+    });
+  }
+
+  private saveHistorical(weather: Weather): Promise<any> {
+    console.log('WeatherForecastCache: Caching the result of historical request');
+    return new Promise<any>((resolve, reject) => {
+      // TODO: save daily results
+      resolve({ ok: 1 });
+    });
   }
 
 }
