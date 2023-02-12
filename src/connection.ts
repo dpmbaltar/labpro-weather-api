@@ -3,7 +3,7 @@ import { dbConfig } from './config';
 
 let client;
 let connection;
-const collections = {
+export const collections = {
   cache: null,
   location: null,
   historical: null
@@ -20,10 +20,6 @@ export function connect(): Promise<MongoClient> {
 
     resolve(connection);
   });
-}
-
-export function cache(): Collection {
-  return collections.cache;
 }
 
 function initCollections(client: MongoClient) {
