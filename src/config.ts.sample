@@ -6,7 +6,9 @@ export const dbConfig = {
   uri: "mongodb://localhost:27017/weather",
   name: "weather",
   collections: {
-    cache: "cache"
+    cache: "cache",
+    location: "location",
+    historical: "historical"
   },
   options: {
     cacheTtl: 3600,
@@ -23,42 +25,10 @@ export const weatherServiceConfig = {
     days: 3
   },
   openmeteo: {
-    //https://api.open-meteo.com/v1/forecast?latitude=-38.94&longitude=-68.06&hourly=temperature_2m,relativehumidity_2m,dewpoint_2m,apparent_temperature,precipitation,weathercode,surface_pressure,cloudcover,visibility,windspeed_10m,winddirection_10m,windgusts_10m,shortwave_radiation&daily=weathercode,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,sunrise,sunset,precipitation_sum,precipitation_hours,windspeed_10m_max,windgusts_10m_max,winddirection_10m_dominant,shortwave_radiation_sum&current_weather=true&timezone=auto
     url: "https://api.open-meteo.com/v1/forecast",
     params: {
       current_weather: "true",
       timezone: "auto",
-    },
-    variables: {
-      hourly: [
-        "temperature_2m",
-        "relativehumidity_2m",
-        "dewpoint_2m",
-        "apparent_temperature",
-        "precipitation",
-        "weathercode",
-        "surface_pressure",
-        "cloudcover",
-        "visibility",
-        "windspeed_10m",
-        "winddirection_10m",
-        "windgusts_10m",
-        "shortwave_radiation"
-      ],
-      daily: [
-        "weathercode",
-        "temperature_2m_max",
-        "temperature_2m_min",
-        "apparent_temperature_max",
-        "apparent_temperature_min",
-        "sunrise", "sunset",
-        "precipitation_sum",
-        "precipitation_hours",
-        "windspeed_10m_max",
-        "windgusts_10m_max",
-        "winddirection_10m_dominant",
-        "shortwave_radiation_sum"
-      ]
     }
   }
 }

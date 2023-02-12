@@ -6,8 +6,9 @@ import { dbConfig, weatherServiceConfig } from './config';
 export const WeatherQuerySchema = joi.object({
   latitude: joi.number().min(-90).max(90).required(),
   longitude: joi.number().min(-180).max(180).required(),
-  days: joi.number().min(1).max(30).optional(),
-  date: joi.date().iso().optional()
+  days: joi.number().min(-30).max(30).optional(),
+  date: joi.date().iso().optional(),
+  withLocation: joi.boolean().optional()
 });
 
 export interface WeatherQuery {
@@ -15,6 +16,7 @@ export interface WeatherQuery {
   longitude: number;
   days?: number;
   date?: Date;
+  withLocation?: boolean;
 }
 
 export interface WeatherLocation {
@@ -68,7 +70,6 @@ export interface HourlyWeather {
   relativeHumidity: number[];
   dewPoint: number[];
   cloudCover: number[];
-  visibility: number[];
   surfacePressure: number[];
   windSpeed: number[];
   windDirection: number[];
@@ -98,6 +99,35 @@ export interface WeatherForecast {
   hourly(query: WeatherQuery): Promise<Weather>;
 }
 
+const DailyWeatherFields = [
+  'temperature_2m_max',
+  'temperature_2m_min',
+  'apparent_temperature_max',
+  'apparent_temperature_min',
+  'sunrise',
+  'sunset',
+  'precipitation_sum',
+  'precipitation_hours',
+  'windspeed_10m_max',
+  'windgusts_10m_max',
+  'winddirection_10m_dominant',
+  'weathercode'
+];
+
+const HourlyWeatherFields = [
+  'temperature_2m',
+  'apparent_temperature',
+  'precipitation',
+  'relativehumidity_2m',
+  'dewpoint_2m',
+  'cloudcover',
+  'surface_pressure',
+  'windspeed_10m',
+  'winddirection_10m',
+  'windgusts_10m',
+  'weathercode'
+];
+
 export class WeatherForecastService implements WeatherForecast {
 
   private conditions = new Map<number, WeatherCondition>;
@@ -106,45 +136,19 @@ export class WeatherForecastService implements WeatherForecast {
     forecast: {
       openmeteo: {
         method: 'GET',
-        url: weatherServiceConfig.openmeteo.url,
+        url: 'https://api.open-meteo.com/v1/forecast',
         params: {
           latitude: NaN,
           longitude: NaN,
           timezone: 'auto',
           current_weather: 'true',
-          daily: [
-            "temperature_2m_max",
-            "temperature_2m_min",
-            "apparent_temperature_max",
-            "apparent_temperature_min",
-            "sunrise",
-            "sunset",
-            "precipitation_sum",
-            "precipitation_hours",
-            "windspeed_10m_max",
-            "windgusts_10m_max",
-            "winddirection_10m_dominant",
-            "weathercode"
-          ].join(','),
-          hourly: [
-            "temperature_2m",
-            "apparent_temperature",
-            "precipitation",
-            "relativehumidity_2m",
-            "dewpoint_2m",
-            "cloudcover",
-            "visibility",
-            "surface_pressure",
-            "windspeed_10m",
-            "winddirection_10m",
-            "windgusts_10m",
-            "weathercode"
-          ].join(',')
+          daily: DailyWeatherFields.join(','),
+          hourly: HourlyWeatherFields.join(',')
         }
       },
       weatherapi: {
         method: 'GET',
-        url: weatherServiceConfig.weatherapi.url,
+        url: 'https://weatherapi-com.p.rapidapi.com/forecast.json',
         params: {
           q: '',
           lang: weatherServiceConfig.weatherapi.lang,
@@ -155,6 +159,41 @@ export class WeatherForecastService implements WeatherForecast {
           'X-RapidAPI-Host': weatherServiceConfig.weatherapi.host
         }
       }
+    },
+    historical: function(
+      latitude: number,
+      longitude: number,
+      startDate: Date,
+      endDate: Date
+    ) {
+      return [
+        {
+          method: 'GET',
+          url: 'https://archive-api.open-meteo.com/v1/archive',
+          params: {
+            latitude: latitude,
+            longitude: longitude,
+            start_date: startDate.toISOString().substring(0, 10),
+            end_date: endDate.toISOString().substring(0, 10),
+            timezone: 'auto',
+            daily: DailyWeatherFields.join(','),
+            hourly: HourlyWeatherFields.join(',')
+          }
+        },
+        {
+          method: 'GET',
+          url: 'https://weatherapi-com.p.rapidapi.com/forecast.json',
+          params: {
+            q: `${latitude},${longitude}`,
+            lang: weatherServiceConfig.weatherapi.lang,
+            days: 0
+          },
+          headers: {
+            'X-RapidAPI-Key': weatherServiceConfig.weatherapi.key,
+            'X-RapidAPI-Host': weatherServiceConfig.weatherapi.host
+          }
+        }
+      ];
     }
   };
 
@@ -196,17 +235,7 @@ export class WeatherForecastService implements WeatherForecast {
           const openmeteo = response1.data;
           const weatherapi = response2.data;
           const weather = {
-            location: {
-              name: weatherapi.location.name,
-              region: weatherapi.location.region,
-              country: weatherapi.location.country,
-              latitude: weatherapi.location.lat,
-              longitude: weatherapi.location.lon,
-              elevation: openmeteo.elevation,
-              timezone: openmeteo.timezone,
-              timezoneAbbreviation: openmeteo.timezone_abbreviation,
-              utcOffsetSeconds: openmeteo.utc_offset_seconds,
-            },
+            location: this.buildWeatherLocation(openmeteo, weatherapi),
             current: {
               time: openmeteo.current_weather.time,
               temperature: openmeteo.current_weather.temperature,
@@ -225,8 +254,8 @@ export class WeatherForecastService implements WeatherForecast {
                 openmeteo.current_weather.weathercode
               )
             },
-            daily: this.mapDailyWeather(openmeteo.daily),
-            hourly: this.mapHourlyWeather(openmeteo.hourly)
+            daily: this.buildDailyWeather(openmeteo.daily, 7),
+            hourly: this.buildHourlyWeather(openmeteo.hourly, 7)
           };
 
           resolve(weather);
@@ -238,69 +267,179 @@ export class WeatherForecastService implements WeatherForecast {
     });
   }
 
-  private conditionText(weatherCode: number, isDay: boolean = true) {
-    const condition = this.conditions.get(weatherCode);
-    return isDay ? condition.day : condition.night;
+  /**
+   * Fetches historical weather from the OpenMeteo History API.
+   * Requires the following fields from a WeatherQuery: latitude, longitude,
+   * date, days and withLocation. Latitude and longitude are used for location.
+   * The date should be at least 7 days earlier than yesterday. If the number of
+   * days is positive, date is the start date and date + days is the end date.
+   * If the number of days is negative, date is the end date and date - days is
+   * the start date. Note: some fields have been found to be null for dates
+   * closer than 10 days to today, even though the API mentions a 5 day offset
+   * from today backwards should be queried. Finally, if withLocation is true,
+   * the location object is included in the response.
+   *
+   * For caching purposes, start and end dates are modified to retrieve a whole
+   * month or two. For example, if start date and end date is in the same month,
+   * the whole month is retrieved. If the start and end date are in different
+   * months, the two whole months are retrieved, except if the last month is
+   * the actual month, then the end date is today - 7 days.
+   *
+   * @param weatherQuery the weather query
+   * @returns a Weather promise
+   */
+  historical(weatherQuery: WeatherQuery): Promise<Weather> {
+    console.log('WeatherForecastService: Handling historical() request');
+    return new Promise<Weather>((resolve, reject) => {
+      const { latitude, longitude, days, date, withLocation } = weatherQuery;
+      const today = new Date();
+      const offsetTime = 1000*60*60*24*7;
+      let start: Date, end: Date, totalDays: number;
+
+      if (days > 0) {
+        start = new Date(date.getTime());
+        end = new Date(date.getTime());
+        end.setDate(end.getDate() + Math.min(7, days));
+      } else if (days < 0) {
+        end = new Date(date.getTime());
+        start = new Date(date.getTime());
+        start.setDate(start.getDate() + Math.max(-7, days));
+      } else {
+        return reject({ error: `Invalid days number (${days})` });
+      }
+
+      if (today.getTime() <= start.getTime() ||
+          today.getTime() - offsetTime < end.getTime()) {
+        return reject({
+          error: `Invalid date/days values (${date.toUTCString()}/${days})`
+        });
+      }
+
+      if (end.getUTCFullYear() == today.getUTCFullYear() &&
+          end.getUTCMonth() == today.getUTCMonth()) {
+        end.setUTCMonth(today.getUTCMonth());
+        end.setUTCDate(today.getUTCDate() - 5);
+      } else {
+        end.setUTCMonth(end.getUTCMonth() + 1);
+        end.setUTCDate(0);
+      }
+
+      start.setUTCDate(1);
+      totalDays = end.getTime() - start.getTime();
+      totalDays/= 1000*60*60*24;
+      totalDays = Math.round(totalDays + 1);
+
+      const requests = this.request.historical(latitude, longitude, start, end);
+      if (!withLocation)
+        requests.splice(-1);
+
+      axios.all(requests.map(request => axios.request(request)))
+        .then(axios.spread((...responses) => {
+          const openmeteo = responses[0].data;
+          const weather = {
+            daily: this.buildDailyWeather(openmeteo.daily, totalDays)
+          };
+
+          if (withLocation) {
+            const weatherapi = responses[1].data;
+            weather['location'] = this.buildWeatherLocation(openmeteo, weatherapi);
+          }
+
+          resolve(weather);
+        }))
+        .catch((error) => {
+          console.error(error);
+          reject(error);
+        });
+    });
   }
 
-  private conditionIcon(weatherCode: number) {
-    return this.conditions.get(weatherCode).icon;
+  private buildWeatherLocation(openmeteo, weatherapi) {
+    return {
+      name: weatherapi.location.name,
+      region: weatherapi.location.region,
+      country: weatherapi.location.country,
+      latitude: weatherapi.location.lat,
+      longitude: weatherapi.location.lon,
+      elevation: openmeteo.elevation,
+      timezone: openmeteo.timezone,
+      timezoneAbbreviation: openmeteo.timezone_abbreviation,
+      utcOffsetSeconds: openmeteo.utc_offset_seconds
+    };
   }
 
-  private mapDailyWeather(openMeteoDaily) {
+  private buildDailyWeather(daily, days: number) {
     const dailyWeather = [];
 
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < days; i++) {
+      if (daily.weathercode[i] == null)
+        break;
+
       dailyWeather.push({
-        time: openMeteoDaily.time[i],
-        temperatureMax: openMeteoDaily.temperature_2m_max[i],
-        temperatureMin: openMeteoDaily.temperature_2m_min[i],
-        apparentTemperatureMax: openMeteoDaily.apparent_temperature_max[i],
-        apparentTemperatureMin: openMeteoDaily.apparent_temperature_min[i],
-        sunrise: openMeteoDaily.sunrise[i],
-        sunset: openMeteoDaily.sunset[i],
-        precipitationSum: openMeteoDaily.precipitation_sum[i],
-        precipitationHours: openMeteoDaily.precipitation_hours[i],
-        windSpeedMax: openMeteoDaily.windspeed_10m_max[i],
-        windGustsMax: openMeteoDaily.windgusts_10m_max[i],
-        windDirection: openMeteoDaily.winddirection_10m_dominant[i],
-        conditionText: this.conditionText(openMeteoDaily.weathercode[i]),
-        conditionIcon: this.conditionIcon(openMeteoDaily.weathercode[i])
+        time: daily.time[i],
+        temperatureMax: daily.temperature_2m_max[i] || 0,
+        temperatureMin: daily.temperature_2m_min[i] || 0,
+        apparentTemperatureMax: daily.apparent_temperature_max[i] || 0,
+        apparentTemperatureMin: daily.apparent_temperature_min[i] || 0,
+        sunrise: daily.sunrise[i],
+        sunset: daily.sunset[i],
+        precipitationSum: daily.precipitation_sum[i] || 0,
+        precipitationHours: daily.precipitation_hours[i] || 0,
+        windSpeedMax: daily.windspeed_10m_max[i] || 0,
+        windGustsMax: daily.windgusts_10m_max[i] || 0,
+        windDirection: daily.winddirection_10m_dominant[i] || 0,
+        conditionText: this.conditionText(daily.weathercode[i]),
+        conditionIcon: this.conditionIcon(daily.weathercode[i])
       });
     }
 
     return dailyWeather;
   }
 
-  private mapHourlyWeather(openMeteoHourly) {
+  private buildHourlyWeather(openmeteoHourly, days: number) {
     const hourlyWeather = [];
 
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < days; i++) {
       const start = i * 24;
       const end = start + 24;
-      const weatherCodes = openMeteoHourly.weathercode.slice(start, end);
+      const weatherCodes = openmeteoHourly.weathercode.slice(start, end);
       const conditionTexts = weatherCodes.map(code => this.conditionText(code));
       const conditionIcons = weatherCodes.map(code => this.conditionIcon(code));
 
       hourlyWeather.push({
-        time: openMeteoHourly.time.slice(start, end),
-        temperature: openMeteoHourly.temperature_2m.slice(start, end),
-        apparentTemperature: openMeteoHourly.apparent_temperature.slice(start, end),
-        precipitation: openMeteoHourly.precipitation.slice(start, end),
-        relativeHumidity: openMeteoHourly.relativehumidity_2m.slice(start, end),
-        dewPoint: openMeteoHourly.dewpoint_2m.slice(start, end),
-        cloudCover: openMeteoHourly.cloudcover.slice(start, end),
-        visibility: openMeteoHourly.visibility.slice(start, end),
-        surfacePressure: openMeteoHourly.surface_pressure.slice(start, end),
-        windSpeed: openMeteoHourly.windspeed_10m.slice(start, end),
-        windDirection: openMeteoHourly.winddirection_10m.slice(start, end),
-        windGusts: openMeteoHourly.windgusts_10m.slice(start, end),
+        time: openmeteoHourly.time.slice(start, end),
+        temperature: openmeteoHourly.temperature_2m.slice(start, end),
+        apparentTemperature: openmeteoHourly.apparent_temperature.slice(start, end),
+        precipitation: openmeteoHourly.precipitation.slice(start, end),
+        relativeHumidity: openmeteoHourly.relativehumidity_2m.slice(start, end),
+        dewPoint: openmeteoHourly.dewpoint_2m.slice(start, end),
+        cloudCover: openmeteoHourly.cloudcover.slice(start, end),
+        surfacePressure: openmeteoHourly.surface_pressure.slice(start, end),
+        windSpeed: openmeteoHourly.windspeed_10m.slice(start, end),
+        windDirection: openmeteoHourly.winddirection_10m.slice(start, end),
+        windGusts: openmeteoHourly.windgusts_10m.slice(start, end),
         conditionText: conditionTexts,
         conditionIcon: conditionIcons
       });
     }
 
     return hourlyWeather;
+  }
+
+  private conditionText(weatherCode: number, isDay: boolean = true) {
+    let condition = this.conditions.get(weatherCode);
+    if (condition == null)
+      condition = this.conditions.get(-1);
+
+    return isDay ? condition.day : condition.night;
+  }
+
+  private conditionIcon(weatherCode: number) {
+    let condition = this.conditions.get(weatherCode);
+    if (condition == null)
+      condition = this.conditions.get(-1);
+
+    return condition.icon;
   }
 
 }
@@ -471,6 +610,11 @@ export class WeatherForecastCache implements WeatherForecast {
           reject({ error: error });
         })
     })
+  }
+
+  historical(weatherQuery: WeatherQuery): Promise<Weather> {
+    console.log('WeatherForecastCache: Handling historical() request');
+    return this.service.historical(weatherQuery);
   }
 
 }

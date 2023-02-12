@@ -1,5 +1,11 @@
 [
   {
+    "code": -1,
+    "day": "Desconocido",
+    "night": "Desconocido",
+    "icon": -1
+  },
+  {
     "code": 0,
     "day": "Soleado",
     "night": "Despejado",

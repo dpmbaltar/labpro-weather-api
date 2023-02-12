@@ -113,3 +113,24 @@ app.get('/api/weather/hourly/:year/:month/:day', (req, res) => {
     .then(weather => res.status(200).json(weather))
     .catch(error => res.status(500).json(error));
 });
+
+app.get('/api/weather/historical', (req, res) => {
+  const { latitude, longitude, date, days, withLocation } = req.query;
+  const { error, value:weatherQuery } = WeatherQuerySchema.validate({
+    latitude: latitude,
+    longitude: longitude,
+    date: new Date(date),
+    days: days || -7,
+    withLocation: withLocation || false
+  });
+
+  if (error) {
+    let message = '';
+    error.details.forEach(detail => message += detail.message);
+    return res.status(400).json({ error: message });
+  }
+
+  weatherCache.historical(weatherQuery)
+    .then(weather => res.status(200).json(weather))
+    .catch(error => res.status(500).json(error));
+});
