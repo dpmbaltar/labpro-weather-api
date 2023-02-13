@@ -35,6 +35,7 @@ db.connect()
       weatherCache = new WeatherForecastCache(
         db.collections.cache,
         db.collections.location,
+        db.collections.historical,
         weatherService
       );
     } catch (e) {
@@ -133,7 +134,7 @@ app.get('/api/weather/historical', (req, res) => {
     return res.status(400).json({ error: message });
   }
 
-  weatherCache.historical(weatherQuery)
+  weatherCache.history(weatherQuery)
     .then(weather => res.status(200).json(weather))
     .catch(error => res.status(500).json(error));
 });

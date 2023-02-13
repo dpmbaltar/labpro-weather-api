@@ -41,7 +41,7 @@ function initCollections(client: MongoClient) {
 
   collections.historical = db.collection(dbConfig.collections.historical);
   collections.historical.createIndex(
-    { _location_id: 1, _date: -1 },
+    { _locationId: 1, _date: -1 },
     { unique: true }
   );
 

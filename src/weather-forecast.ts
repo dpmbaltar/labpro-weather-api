@@ -97,6 +97,7 @@ export interface WeatherForecast {
   current(query: WeatherQuery): Promise<Weather>;
   daily(query: WeatherQuery): Promise<Weather>;
   hourly(query: WeatherQuery): Promise<Weather>;
+  history(query: WeatherQuery): Promise<Weather>;
 }
 
 const DailyWeatherFields = [
@@ -160,7 +161,7 @@ export class WeatherForecastService implements WeatherForecast {
         }
       }
     },
-    historical: function(
+    history: function(
       latitude: number,
       longitude: number,
       startDate: Date,
@@ -268,7 +269,7 @@ export class WeatherForecastService implements WeatherForecast {
   }
 
   /**
-   * Fetches historical weather from the OpenMeteo History API.
+   * Fetches history weather from the OpenMeteo History API.
    * Requires the following fields from a WeatherQuery: latitude, longitude,
    * date, days and withLocation. Latitude and longitude are used for location.
    * The date should be at least 7 days earlier than yesterday. If the number of
@@ -282,8 +283,8 @@ export class WeatherForecastService implements WeatherForecast {
    * @param weatherQuery the weather query
    * @returns a Weather promise
    */
-  historical(weatherQuery: WeatherQuery): Promise<Weather> {
-    console.log('WeatherForecastService: Handling historical() request');
+  history(weatherQuery: WeatherQuery): Promise<Weather> {
+    console.log('WeatherForecastService: Handling history() request');
     return new Promise<Weather>((resolve, reject) => {
       const { latitude, longitude, days, date, withLocation } = weatherQuery;
       const today = new Date();
@@ -315,7 +316,7 @@ export class WeatherForecastService implements WeatherForecast {
       totalDays/= 24*60*60*1000;
       totalDays = Math.round(totalDays + 1);
 
-      const requests = this.request.historical(latitude, longitude, start, end);
+      const requests = this.request.history(latitude, longitude, start, end);
       if (!withLocation)
         requests.splice(-1);
 
@@ -435,6 +436,7 @@ export class WeatherForecastCache implements WeatherForecast {
   constructor(
     private cache: Collection,
     private location: Collection,
+    private historical: Collection,
     private service: WeatherForecastService
   ) {}
 
@@ -607,8 +609,8 @@ export class WeatherForecastCache implements WeatherForecast {
    * @param weatherQuery the weather query
    * @returns the Weather promise
    */
-  historical(weatherQuery: WeatherQuery): Promise<Weather> {
-    console.log('WeatherForecastCache: Handling historical() request');
+  history(weatherQuery: WeatherQuery): Promise<Weather> {
+    console.log('WeatherForecastCache: Handling history() request');
     return new Promise<Weather>((resolve, reject) => {
       const { days, date, withLocation } = weatherQuery;
       const today = new Date();
@@ -636,7 +638,7 @@ export class WeatherForecastCache implements WeatherForecast {
         });
       }
 
-      this.findHistorical(weatherQuery)
+      this.findHistorical(weatherQuery, start, end)
         .then(result => {
           if (result) {
             // TODO: check if location has incomplete or empty daily objects
@@ -656,26 +658,26 @@ export class WeatherForecastCache implements WeatherForecast {
 
             resolve(result);
           } else {
-            // TODO:
             // Case 1: no location found
             // - Modify start and end dates to match whole month(s)
             // - Get location and daily weather from weather service
             // - Cache results into database
             // - Filter request as needed and return to client
             console.log('Location not found');
-            const newStart = new Date(start.getTime());
             const newEnd = new Date(end.getTime());
+            const newStart = new Date(start.getTime());
+            newStart.setUTCDate(1);
 
             if (newEnd.getUTCFullYear() == today.getUTCFullYear() &&
                 newEnd.getUTCMonth() == today.getUTCMonth()) {
               newEnd.setUTCMonth(today.getUTCMonth());
               newEnd.setUTCDate(today.getUTCDate() - offsetDays);
             } else {
+              newEnd.setUTCDate(1);
               newEnd.setUTCMonth(newEnd.getUTCMonth() + 1);
               newEnd.setUTCDate(0);
             }
 
-            newStart.setUTCDate(1);
             totalDays = newEnd.getTime() - newStart.getTime();
             totalDays/= 24*60*60*1000;
             totalDays = Math.round(totalDays + 1);
@@ -683,7 +685,7 @@ export class WeatherForecastCache implements WeatherForecast {
             weatherQuery['days'] = totalDays;
             weatherQuery['withLocation'] = true;
 
-            this.service.historical(weatherQuery)
+            this.service.history(weatherQuery)
               .then(weather => {
                 this.saveHistorical(weather)
                   .finally(() => {
@@ -700,21 +702,30 @@ export class WeatherForecastCache implements WeatherForecast {
                     resolve(weather);
                   });
               })
-              .catch(error => {
-                console.error(error);
-                reject({ error: error });
-              });
+              .catch(error => reject(error));
           }
         })
-        .catch(error => {
-          console.error(error);
-          reject({ error: error });
-        });
+        .catch(error => reject(error));
     });
   }
 
-  private findHistorical(query: WeatherQuery): Promise<Weather> {
+  private findHistorical(
+    query: WeatherQuery,
+    from: Date,
+    to: Date
+  ): Promise<Weather> {
     return new Promise<Weather>((resolve, reject) => {
+      const projectLocation = !query.withLocation ? {} : {
+        'location.name': '$name',
+        'location.region': '$region',
+        'location.country': '$country',
+        'location.latitude': '$latitude',
+        'location.longitude': '$longitude',
+        'location.elevation': '$elevation',
+        'location.timezone': '$timezone',
+        'location.timezoneAbbreviation': '$timezoneAbbreviation',
+        'location.utcOffsetSeconds': '$utcOffsetSeconds'
+      };
       const aggregation = [
         {
           $geoNear: {
@@ -734,38 +745,23 @@ export class WeatherForecastCache implements WeatherForecast {
           $lookup: {
             from: 'historical',
             localField: '_id',
-            foreignField: '_location_id',
+            foreignField: '_locationId',
             as: 'daily',
-            pipeline: [
-              {
-                $match: {
-                  date: {
-                    $gte: new Date('2023-01-28'),
-                    $lte: new Date('2023-02-03')
-                  }
-                }
-              }
-            ]
+            pipeline: [{ $match: { _date: { $gte: from, $lte: to } } }]
           }
         },
         {
           $project: {
-            'location.name': '$name',
-            'location.region': '$region',
-            'location.country': '$country',
-            'location.latitude': '$latitude',
-            'location.longitude': '$longitude',
-            'location.elevation': '$elevation',
-            'location.timezone': '$timezone',
-            'location.timezoneAbbreviation': '$timezoneAbbreviation',
-            'location.utcOffsetSeconds': '$utcOffsetSeconds'
+            'daily': 1,
+            ...projectLocation
           }
         },
         {
           $project: {
             '_id': 0,
             'daily._id': 0,
-            'daily._location_id': 0
+            'daily._locationId': 0,
+            'daily._date': 0
           }
         }
       ];
@@ -782,10 +778,75 @@ export class WeatherForecastCache implements WeatherForecast {
   }
 
   private saveHistorical(weather: Weather): Promise<any> {
-    console.log('WeatherForecastCache: Caching the result of historical request');
+    console.log('WeatherForecastCache: Caching the result of history request');
     return new Promise<any>((resolve, reject) => {
-      // TODO: save daily results
-      resolve({ ok: 1 });
+      this.saveLocation(weather.location)
+        .then(result => {
+          const locationId = result.insertedId;
+          const daily = weather.daily.map(weather => {
+            return {
+              _locationId: locationId,
+              _date: new Date(weather.time),
+              ...weather
+            };
+          });
+
+          this.historical.insertMany(daily)
+            .then(result => resolve(result))
+            .catch(error => {
+              console.error(error);
+              reject({ error: error });
+            });
+        })
+        .catch(error => {
+          console.error(error);
+          reject({ error: error });
+        });
+    });
+  }
+
+  private saveLocation(location: WeatherLocation): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      const { latitude, longitude } = location;
+
+      this.location.findOne<Weather>({
+        _location: {
+          $near: {
+            $geometry: {
+              type: 'Point',
+              coordinates: [longitude, latitude]
+            },
+            $maxDistance: dbConfig.options.maxDistance
+          }
+        }
+      }, { projection: { _id: 1 } })
+        .then(result => {
+          if (result) {
+            resolve(result);
+          } else {
+            const newLocation = {
+              _location: {
+                type: 'Point',
+                coordinates: [longitude, latitude]
+              },
+              ...location
+            };
+
+            this.location.insertOne(newLocation)
+              .then(result => {
+                console.log(result);
+                resolve(result);
+              })
+              .catch(error => {
+                console.error(error);
+                reject(error);
+              });
+          }
+        })
+        .catch(error => {
+          console.error(error);
+          reject({ error: error });
+        });
     });
   }
 
