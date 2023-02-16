@@ -362,7 +362,7 @@ export class WeatherForecastService implements WeatherForecast {
       if (daily.weathercode[i] == null)
         break;
 
-      dailyWeather.push({
+      dailyWeather.unshift({
         time: daily.time[i],
         temperatureMax: daily.temperature_2m_max[i] || 0,
         temperatureMin: daily.temperature_2m_min[i] || 0,
@@ -601,10 +601,11 @@ export class WeatherForecastCache implements WeatherForecast {
    * future requests.
    *
    * For caching purposes, start and end dates are modified to retrieve a whole
-   * month or two. For example, if start date and end date is in the same month,
-   * the whole month is retrieved. If the start and end date are in different
-   * months, the two whole months are retrieved, except when the last month is
-   * the current month, then the end date is today - 7 days.
+   * month or two when using the weather service. For example, if start date and
+   * end date is in the same month, the whole month is retrieved. If the start
+   * and end date are in different months, the two whole months are retrieved,
+   * except when the last month is the current month, then the end date is today
+   * - 7 days.
    *
    * @param weatherQuery the weather query
    * @returns the Weather promise
@@ -617,6 +618,12 @@ export class WeatherForecastCache implements WeatherForecast {
       const maxDays = 7;
       const offsetDays = 7;
       const offsetTime = offsetDays * 24*60*60*1000;
+      const limit = new Date(today.getTime());
+      limit.setUTCHours(0);
+      limit.setUTCMinutes(0);
+      limit.setUTCSeconds(0);
+      limit.setUTCMilliseconds(0);
+      limit.setTime(limit.getTime() - 7*24*60*60*1000);
       let start: Date, end: Date, totalDays: number;
 
       if (days > 0) {
@@ -641,28 +648,97 @@ export class WeatherForecastCache implements WeatherForecast {
       this.findHistorical(weatherQuery, start, end)
         .then(result => {
           if (result) {
-            // TODO: check if location has incomplete or empty daily objects
-            // fill if needed
             console.log('Location found');
+            let fillStart: Date, fillEnd: Date;
 
             if (result.daily && result.daily.length > 0) {
-              const daily = result.daily;
-              const foundStart = new Date(daily[0].time);
-              const foundEnd = new Date(daily[daily.length - 1].time);
+              const { daily } = result;
+              const foundStart = new Date(daily[daily.length - 1].time);
+              const foundEnd = new Date(daily[0].time);
 
-              console.log('given start: ' + start.toISOString());
-              console.log('found start: ' + foundStart.toISOString());
-              console.log('given end: ' + end.toISOString());
-              console.log('found end: ' + foundEnd.toISOString());
+              console.log('Weather found');
+              console.log({
+                givenStart: start.toISOString(),
+                givenEnd: end.toISOString(),
+                foundStart: foundStart.toISOString(),
+                foundEnd: foundEnd.toISOString()
+              });
+
+              if (start.getTime() < foundStart.getTime()) {
+                console.log('Fill start');
+                fillStart = new Date(start.getTime());
+                fillStart.setUTCDate(1);
+                fillEnd = new Date(start.getTime());
+                fillEnd.setUTCDate(1);
+                fillEnd.setUTCMonth(fillEnd.getUTCMonth() + 1);
+                fillEnd.setUTCDate(0);
+              } else if (end.getTime() > foundEnd.getTime()) {
+                console.log('Fill end');
+                const startLimit = foundEnd.getTime() + 24*60*60*1000;
+                fillStart = new Date(end.getTime());
+                fillStart.setUTCDate(1);
+                fillStart.setTime(Math.max(fillStart.getTime(), startLimit));
+                fillEnd = new Date(end.getTime());
+                fillEnd.setUTCDate(1);
+                fillEnd.setUTCMonth(fillEnd.getUTCMonth() + 1);
+                fillEnd.setUTCDate(0);
+                fillEnd.setTime(Math.min(fillEnd.getTime(), limit.getTime()));
+              }
+            } else {
+              console.log('Fill start-end');
+              fillStart = new Date(start.getTime());
+              fillStart.setUTCDate(1);
+              fillEnd = new Date(end.getTime());
+              fillEnd.setUTCDate(1);
+              fillEnd.setUTCMonth(fillEnd.getUTCMonth() + 1);
+              fillEnd.setUTCDate(0);
+              fillEnd.setTime(Math.min(fillEnd.getTime(), limit.getTime()));
+            }
+
+            console.log({
+              fillStart: fillStart,
+              fillEnd: fillEnd
+            });
+
+            if (fillStart) {
+              console.log('Filling...');
+              totalDays = fillEnd.getTime() - fillStart.getTime();
+              totalDays/= 24*60*60*1000;
+              totalDays = Math.round(totalDays + 1);
+              weatherQuery['date'] = fillStart;
+              weatherQuery['days'] = totalDays;
+              weatherQuery['withLocation'] = true;
+              console.log(weatherQuery);
+
+              return this.service.history(weatherQuery)
+                .then(weather => {
+                  this.saveHistorical(weather)
+                    .finally(() => {
+                      if (!withLocation)
+                        delete weather.location;
+
+                      weather.daily = weather.daily.filter(daily => {
+                        const dailyTime = new Date(daily.time).getTime();
+                        const startTime = start.getTime();
+                        const endTime = end.getTime();
+                        return startTime <= dailyTime && dailyTime <= endTime;
+                      });
+
+                      result.daily.push(...weather.daily);
+                      result.daily = result.daily.sort((a, b) => {
+                        const timeA = (new Date(a.time)).getTime();
+                        const timeB = (new Date(b.time)).getTime();
+                        return timeB - timeA;
+                      });
+
+                      resolve(result);
+                    });
+                })
+                .catch(error => reject(error));
             }
 
             resolve(result);
           } else {
-            // Case 1: no location found
-            // - Modify start and end dates to match whole month(s)
-            // - Get location and daily weather from weather service
-            // - Cache results into database
-            // - Filter request as needed and return to client
             console.log('Location not found');
             const newEnd = new Date(end.getTime());
             const newStart = new Date(start.getTime());
@@ -747,7 +823,10 @@ export class WeatherForecastCache implements WeatherForecast {
             localField: '_id',
             foreignField: '_locationId',
             as: 'daily',
-            pipeline: [{ $match: { _date: { $gte: from, $lte: to } } }]
+            pipeline: [
+              { $match: { _date: { $gte: from, $lte: to } } },
+              { $sort: { _date: -1 } }
+            ]
           }
         },
         {
@@ -782,7 +861,7 @@ export class WeatherForecastCache implements WeatherForecast {
     return new Promise<any>((resolve, reject) => {
       this.saveLocation(weather.location)
         .then(result => {
-          const locationId = result.insertedId;
+          const locationId = result._id;
           const daily = weather.daily.map(weather => {
             return {
               _locationId: locationId,
@@ -835,7 +914,7 @@ export class WeatherForecastCache implements WeatherForecast {
             this.location.insertOne(newLocation)
               .then(result => {
                 console.log(result);
-                resolve(result);
+                resolve({ _id: result.insertedId });
               })
               .catch(error => {
                 console.error(error);
