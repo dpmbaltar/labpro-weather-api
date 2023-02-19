@@ -325,6 +325,11 @@ export class WeatherForecastService implements WeatherForecast {
           const openmeteo = responses[0].data;
           const weather = {
             daily: this.buildDailyWeather(openmeteo.daily, totalDays)
+              .sort((a, b) => {
+                const timeA = (new Date(a.time)).getTime();
+                const timeB = (new Date(b.time)).getTime();
+                return timeB - timeA;
+              })
           };
 
           if (withLocation) {
@@ -362,7 +367,7 @@ export class WeatherForecastService implements WeatherForecast {
       if (daily.weathercode[i] == null)
         break;
 
-      dailyWeather.unshift({
+      dailyWeather.push({
         time: daily.time[i],
         temperatureMax: daily.temperature_2m_max[i] || 0,
         temperatureMin: daily.temperature_2m_min[i] || 0,
