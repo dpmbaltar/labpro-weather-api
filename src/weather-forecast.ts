@@ -757,6 +757,7 @@ export class WeatherForecastCache implements WeatherForecast {
               newEnd.setUTCDate(1);
               newEnd.setUTCMonth(newEnd.getUTCMonth() + 1);
               newEnd.setUTCDate(0);
+              newEnd.setTime(Math.min(newEnd.getTime(), limit.getTime()));
             }
 
             totalDays = newEnd.getTime() - newStart.getTime();
