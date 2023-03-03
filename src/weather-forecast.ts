@@ -118,7 +118,7 @@ const DailyWeatherFields = [
 const HourlyWeatherFields = [
   'temperature_2m',
   'apparent_temperature',
-  'precipitation',
+  'precipitation_probability',
   'relativehumidity_2m',
   'dewpoint_2m',
   'cloudcover',
@@ -177,8 +177,7 @@ export class WeatherForecastService implements WeatherForecast {
             start_date: startDate.toISOString().substring(0, 10),
             end_date: endDate.toISOString().substring(0, 10),
             timezone: 'auto',
-            daily: DailyWeatherFields.join(','),
-            hourly: HourlyWeatherFields.join(',')
+            daily: DailyWeatherFields.join(',')
           }
         },
         {
@@ -402,7 +401,7 @@ export class WeatherForecastService implements WeatherForecast {
         time: openmeteoHourly.time.slice(start, end),
         temperature: openmeteoHourly.temperature_2m.slice(start, end),
         apparentTemperature: openmeteoHourly.apparent_temperature.slice(start, end),
-        precipitation: openmeteoHourly.precipitation.slice(start, end),
+        precipitation: openmeteoHourly.precipitation_probability.slice(start, end),
         relativeHumidity: openmeteoHourly.relativehumidity_2m.slice(start, end),
         dewPoint: openmeteoHourly.dewpoint_2m.slice(start, end),
         cloudCover: openmeteoHourly.cloudcover.slice(start, end),
