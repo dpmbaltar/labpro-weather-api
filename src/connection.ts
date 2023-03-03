@@ -15,10 +15,9 @@ export function connect(): Promise<MongoClient> {
       client = new MongoClient(dbConfig.uri);
       connection = client.connect()
         .then(initCollections)
+        .then(resolve)
         .catch(error => reject(error));
     }
-
-    resolve(connection);
   });
 }
 
